@@ -19,7 +19,8 @@ extra-source-files:  CHANGELOG.md,
                      README.md
 
 library
-  exposed-modules:     Data.Finitary.PackInto
+  exposed-modules:     Data.Finitary.PackInto,
+                       Data.Finitary.Finiteness
   -- other-modules:
   build-depends:       base >= 4.11 && < 4.13,
                        finitary >= 0.1.0.0 && < 1.0.0.0,
