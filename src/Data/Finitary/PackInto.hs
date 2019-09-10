@@ -3,8 +3,13 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
-module Data.Finitary.PackInto where
+module Data.Finitary.PackInto 
+(
+  PackInto(..)
+) where
 
 import Data.Maybe (fromJust)
 import CoercibleUtils (op, over, over2)
@@ -13,13 +18,16 @@ import GHC.Generics (Generic)
 import Data.Finitary (Finitary(..))
 import GHC.TypeNats
 import Data.Finite (weakenN, strengthenN)
+import Foreign.Storable (Storable(..))
+import Foreign.Ptr (castPtr)
+import Type.Reflection (Typeable)
 
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 
 newtype PackInto (a :: Type) (b :: Type) = PackInto { unpackFrom :: b }
-  deriving (Eq, Ord, Bounded, Generic)
+  deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable)
 
 instance (Finitary b) => Finitary (PackInto a b)
 
@@ -37,11 +45,11 @@ instance (Finitary a, Finitary b, Cardinality b <= Cardinality a, VU.Unbox a) =>
   {-# INLINE basicInitialize #-}
   basicInitialize = VGM.basicInitialize . op MV_PackInto
   {-# INLINE basicUnsafeReplicate #-}
-  basicUnsafeReplicate len = fmap MV_PackInto . VGM.basicUnsafeReplicate len . fromFinite . weakenN . toFinite . unpackFrom
+  basicUnsafeReplicate len = fmap MV_PackInto . VGM.basicUnsafeReplicate len . mungeOut
   {-# INLINE basicUnsafeRead #-}
-  basicUnsafeRead (MV_PackInto v) = fmap (PackInto . fromFinite . fromJust . strengthenN . toFinite) . VGM.basicUnsafeRead v
+  basicUnsafeRead (MV_PackInto v) = fmap mungeInto . VGM.basicUnsafeRead v
   {-# INLINE basicUnsafeWrite #-}
-  basicUnsafeWrite (MV_PackInto v) i = VGM.basicUnsafeWrite v i . fromFinite . weakenN . toFinite . unpackFrom
+  basicUnsafeWrite (MV_PackInto v) i = VGM.basicUnsafeWrite v i . mungeOut 
   {-# INLINE basicClear #-}
   basicClear = VGM.basicClear . op MV_PackInto
   {-# INLINE basicSet #-}
@@ -65,8 +73,28 @@ instance (Finitary a, Finitary b, Cardinality b <= Cardinality a, VU.Unbox a) =>
   {-# INLINE basicUnsafeSlice #-}
   basicUnsafeSlice i len = over V_PackInto (VG.basicUnsafeSlice i len)
   {-# INLINE basicUnsafeIndexM #-}
-  basicUnsafeIndexM (V_PackInto v) = fmap (PackInto . fromFinite . fromJust . strengthenN . toFinite) . VG.basicUnsafeIndexM v
+  basicUnsafeIndexM (V_PackInto v) = fmap mungeInto . VG.basicUnsafeIndexM v
   {-# INLINE basicUnsafeCopy #-}
   basicUnsafeCopy (MV_PackInto dst) (V_PackInto src) = VG.basicUnsafeCopy dst src
 
 instance (Finitary a, Finitary b, Cardinality b <= Cardinality a, VU.Unbox a) => VU.Unbox (PackInto a b)
+
+instance (Finitary a, Finitary b, Cardinality b <= Cardinality a, Storable a) => Storable (PackInto a b) where
+  {-# INLINE sizeOf #-}
+  sizeOf _ = sizeOf (undefined :: a)
+  {-# INLINE alignment #-}
+  alignment _ = alignment (undefined :: a)
+  {-# INLINE peek #-}
+  peek = fmap mungeInto . peek @a . castPtr
+  {-# INLINE poke #-}
+  poke ptr = poke @a (castPtr ptr) . mungeOut 
+
+-- Helpers
+
+{-# INLINE mungeInto #-}
+mungeInto :: (Finitary a, Finitary b, Cardinality b <= Cardinality a) => a -> PackInto a b
+mungeInto = PackInto . fromFinite . fromJust . strengthenN . toFinite
+
+{-# INLINE mungeOut #-}
+mungeOut :: (Finitary a, Finitary b, Cardinality b <= Cardinality a) => PackInto a b -> a
+mungeOut = fromFinite . weakenN . toFinite . unpackFrom  
