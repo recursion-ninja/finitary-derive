@@ -12,7 +12,7 @@ import GHC.Generics (Generic)
 import Type.Reflection (Typeable)
 import GHC.TypeNats
 import Data.Ord (comparing)
-import CoercibleUtils (over)
+import CoercibleUtils (over2)
 import Data.Finitary (Finitary(..))
 
 newtype Finiteness a = Finiteness a
@@ -22,11 +22,11 @@ instance (Finitary a) => Finitary (Finiteness a)
 
 -- If our indexes are equal, so are we
 instance (Finitary a) => Eq (Finiteness a) where
-  (==) = over Finiteness (equating toFinite)
+  (==) = over2 Finiteness (equating toFinite)
 
 -- Order based on index order
 instance (Finitary a) => Ord (Finiteness a) where
-  compare = over Finiteness (comparing toFinite)
+  compare = over2 Finiteness (comparing toFinite) 
 
 -- Bounds are the same as the index bounds
 instance (Finitary a, 1 <= Cardinality a) => Bounded (Finiteness a) where
