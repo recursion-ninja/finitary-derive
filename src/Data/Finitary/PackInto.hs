@@ -26,14 +26,15 @@ import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 
-newtype PackInto (a :: Type) (b :: Type) = PackInto { unpackFrom :: b }
+-- p is the 'pack into' type
+newtype PackInto (p :: Type) (a :: Type) = PackInto { unpackFrom :: a }
   deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable)
 
-instance (Finitary b) => Finitary (PackInto a b)
+instance (Finitary a) => Finitary (PackInto p a)
 
-newtype instance VU.MVector s (PackInto a b) = MV_PackInto (VU.MVector s a)
+newtype instance VU.MVector s (PackInto p a) = MV_PackInto (VU.MVector s p)
 
-instance (Finitary a, Finitary b, Cardinality b <= Cardinality a, VU.Unbox a) => VGM.MVector VU.MVector (PackInto a b) where
+instance (Finitary p, Finitary a, Cardinality a <= Cardinality p, VU.Unbox p) => VGM.MVector VU.MVector (PackInto p a) where
   {-# INLINE basicLength #-}
   basicLength = VGM.basicLength . op MV_PackInto
   {-# INLINE basicUnsafeSlice #-}
@@ -61,9 +62,9 @@ instance (Finitary a, Finitary b, Cardinality b <= Cardinality a, VU.Unbox a) =>
   {-# INLINE basicUnsafeGrow #-}
   basicUnsafeGrow (MV_PackInto v) = fmap MV_PackInto . VGM.basicUnsafeGrow v
 
-newtype instance VU.Vector (PackInto a b) = V_PackInto (VU.Vector a)
+newtype instance VU.Vector (PackInto p a) = V_PackInto (VU.Vector p)
 
-instance (Finitary a, Finitary b, Cardinality b <= Cardinality a, VU.Unbox a) => VG.Vector VU.Vector (PackInto a b) where
+instance (Finitary p, Finitary a, Cardinality a <= Cardinality p, VU.Unbox p) => VG.Vector VU.Vector (PackInto p a) where
   {-# INLINE basicUnsafeFreeze #-}
   basicUnsafeFreeze = fmap V_PackInto . VG.basicUnsafeFreeze . op MV_PackInto
   {-# INLINE basicUnsafeThaw #-}
@@ -77,24 +78,24 @@ instance (Finitary a, Finitary b, Cardinality b <= Cardinality a, VU.Unbox a) =>
   {-# INLINE basicUnsafeCopy #-}
   basicUnsafeCopy (MV_PackInto dst) (V_PackInto src) = VG.basicUnsafeCopy dst src
 
-instance (Finitary a, Finitary b, Cardinality b <= Cardinality a, VU.Unbox a) => VU.Unbox (PackInto a b)
+instance (Finitary p, Finitary a, Cardinality a <= Cardinality p, VU.Unbox p) => VU.Unbox (PackInto p a)
 
-instance (Finitary a, Finitary b, Cardinality b <= Cardinality a, Storable a) => Storable (PackInto a b) where
+instance (Finitary p, Finitary a, Cardinality a <= Cardinality p, Storable p) => Storable (PackInto p a) where
   {-# INLINE sizeOf #-}
-  sizeOf _ = sizeOf (undefined :: a)
+  sizeOf _ = sizeOf (undefined :: p)
   {-# INLINE alignment #-}
-  alignment _ = alignment (undefined :: a)
+  alignment _ = alignment (undefined :: p)
   {-# INLINE peek #-}
-  peek = fmap mungeInto . peek @a . castPtr
+  peek = fmap mungeInto . peek @p . castPtr
   {-# INLINE poke #-}
-  poke ptr = poke @a (castPtr ptr) . mungeOut 
+  poke ptr = poke @p (castPtr ptr) . mungeOut 
 
 -- Helpers
 
 {-# INLINE mungeInto #-}
-mungeInto :: (Finitary a, Finitary b, Cardinality b <= Cardinality a) => a -> PackInto a b
+mungeInto :: (Finitary p, Finitary a, Cardinality a <= Cardinality p) => p -> PackInto p a
 mungeInto = PackInto . fromFinite . fromJust . strengthenN . toFinite
 
 {-# INLINE mungeOut #-}
-mungeOut :: (Finitary a, Finitary b, Cardinality b <= Cardinality a) => PackInto a b -> a
+mungeOut :: (Finitary p, Finitary a, Cardinality a <= Cardinality p) => PackInto p a -> p
 mungeOut = fromFinite . weakenN . toFinite . unpackFrom  
