@@ -5,12 +5,18 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module Data.Finitary.PackInto 
 (
   PackInto(..)
 ) where
 
+import Control.Applicative (empty)
+import Data.Proxy (Proxy(..))
 import Data.Maybe (fromJust)
 import CoercibleUtils (op, over, over2)
 import Data.Kind (Type)
@@ -21,6 +27,7 @@ import Data.Finite (weakenN, strengthenN)
 import Foreign.Storable (Storable(..))
 import Foreign.Ptr (castPtr)
 import Type.Reflection (Typeable)
+import Data.Binary (Binary(..))
 
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
@@ -89,6 +96,16 @@ instance (Finitary p, Finitary a, Cardinality a <= Cardinality p, Storable p) =>
   peek = fmap mungeInto . peek @p . castPtr
   {-# INLINE poke #-}
   poke ptr = poke @p (castPtr ptr) . mungeOut 
+
+instance (Finitary p, Finitary a, Cardinality a <= Cardinality p, Binary p, Integral p) => Binary (PackInto p a) where
+  put (PackInto x) = do let ix = fromIntegral @_ @p . toFinite $ x
+                        let card = fromIntegral @_ @p . subtract 1 . natVal @(Cardinality a) $ Proxy
+                        put card >> put ix
+  get = do card <- get @p
+           ix <- get @p
+           if ix <= card
+           then pure . fromFinite . fromIntegral $ ix
+           else empty
 
 -- Helpers
 
