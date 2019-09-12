@@ -19,14 +19,16 @@ extra-source-files:  CHANGELOG.md,
                      README.md
 
 library
-  exposed-modules:     Data.Finitary.PackInto
+  exposed-modules:     Data.Finitary.PackInto,
+                       Data.Finitary.Big
   -- other-modules:
   build-depends:       base >= 4.11 && < 4.13,
                        finitary >= 0.1.0.0 && < 1.0.0.0,
                        vector >= 0.12.0.3 && < 0.13.0.0,
                        coercible-utils >= 0.0.0 && < 0.1.0,
                        finite-typelits >= 0.1.4.2 && < 0.2.0.0,
-                       binary >= 0.8.6.0 && < 1.0.0.0
+                       binary >= 0.8.6.0 && < 1.0.0.0,
+                       deepseq >= 1.4.4.0 && < 2.0.0.0
   hs-source-dirs:      src
   default-language:    Haskell2010
 
