@@ -9,6 +9,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
 module Data.Finitary.PackInto 
 (
@@ -30,6 +31,8 @@ import Foreign.Storable (Storable(..))
 import Foreign.Ptr (castPtr)
 import Type.Reflection (Typeable)
 import Data.Binary (Binary(..))
+import Data.Data (Data)
+import Control.DeepSeq (NFData)
 
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
@@ -37,7 +40,9 @@ import qualified Data.Vector.Generic.Mutable as VGM
 
 -- p is the 'pack into' type
 newtype PackInto (p :: Type) (a :: Type) = PackInto { unpackFrom :: a }
-  deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable)
+  deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable, Data)
+
+instance (NFData a) => NFData (PackInto p a)
 
 instance (Finitary a) => Finitary (PackInto p a)
 
