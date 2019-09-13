@@ -105,33 +105,41 @@ instance (Finitary p, Finitary a, Cardinality a <= Cardinality p, Storable p) =>
   poke ptr = poke @p (castPtr ptr) . mungeOut 
 
 instance (Finitary a, Cardinality a <= Cardinality Word8) => Binary (PackInto Word8 a) where
+  {-# INLINE put #-}
   put (PackInto x) = do let ix = fromIntegral @_ @Word8 . toFinite $ x
                         let card = fromIntegral @_ @Word8 . subtract 1 . natVal @(Cardinality a) $ Proxy
                         put card >> put ix
+  {-# INLINE get #-}
   get = do card <- get @Word8
            ix <- get @Word8
            decodeWith PackInto card ix
 
 instance (Finitary a, Cardinality a <= Cardinality Word16) => Binary (PackInto Word16 a) where
+  {-# INLINE put #-}
   put (PackInto x) = do let ix = fromIntegral @_ @Word16 . toFinite $ x
                         let card = fromIntegral @_ @Word16 . subtract 1 . natVal @(Cardinality a) $ Proxy
                         put card >> put ix
+  {-# INLINE get #-}
   get = do card <- get @Word16
            ix <- get @Word16
            decodeWith PackInto card ix
 
 instance (Finitary a, Cardinality a <= Cardinality Word32) => Binary (PackInto Word32 a) where
+  {-# INLINE put #-}
   put (PackInto x) = do let ix = fromIntegral @_ @Word32 . toFinite $ x
                         let card = fromIntegral @_ @Word32 . subtract 1 . natVal @(Cardinality a) $ Proxy
                         put card >> put ix
+  {-# INLINE get #-}
   get = do card <- get @Word32
            ix <- get @Word32
            decodeWith PackInto card ix
 
 instance (Finitary a, Cardinality a <= Cardinality Word64) => Binary (PackInto Word64 a) where
+  {-# INLINE put #-}
   put (PackInto x) = do let ix = fromIntegral @_ @Word64 . toFinite $ x
                         let card = fromIntegral @_ @Word64 . subtract 1 . natVal @(Cardinality a) $ Proxy
                         put card >> put ix
+  {-# INLINE get #-}
   get = do card <- get @Word64
            ix <- get @Word64
            decodeWith PackInto card ix
