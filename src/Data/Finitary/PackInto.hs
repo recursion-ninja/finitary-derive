@@ -11,15 +11,14 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Data.Finitary.PackInto 
 (
   PackInto(..)
 ) where
 
-import Data.Bool (bool)
 import Data.Word (Word8, Word16, Word32, Word64)
-import Control.Applicative (empty)
 import Data.Proxy (Proxy(..))
 import Data.Maybe (fromJust)
 import CoercibleUtils (op, over, over2)
@@ -39,9 +38,11 @@ import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 
+import Data.Finitary.Internal
+
 -- p is the 'pack into' type
 newtype PackInto (p :: Type) (a :: Type) = PackInto { unpackFrom :: a }
-  deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable, Data, Generic1, Functor)
+  deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable, Data, Generic1, Functor, Semigroup, Monoid, Num)
 
 instance (NFData a) => NFData (PackInto p a)
 
@@ -111,7 +112,7 @@ instance (Finitary a, Cardinality a <= Cardinality Word8) => Binary (PackInto Wo
                         put card >> put ix
   get = do card <- get @Word8
            ix <- get @Word8
-           bool empty (pure . fromFinite . fromIntegral $ ix) (ix <= card)
+           decodeWith PackInto card ix
 
 instance (Finitary a, Cardinality a <= Cardinality Word16) => Binary (PackInto Word16 a) where
   put (PackInto x) = do let ix = fromIntegral @_ @Word16 . toFinite $ x
@@ -119,7 +120,7 @@ instance (Finitary a, Cardinality a <= Cardinality Word16) => Binary (PackInto W
                         put card >> put ix
   get = do card <- get @Word16
            ix <- get @Word16
-           bool empty (pure . fromFinite . fromIntegral $ ix) (ix <= card)
+           decodeWith PackInto card ix
 
 instance (Finitary a, Cardinality a <= Cardinality Word32) => Binary (PackInto Word32 a) where
   put (PackInto x) = do let ix = fromIntegral @_ @Word32 . toFinite $ x
@@ -127,7 +128,7 @@ instance (Finitary a, Cardinality a <= Cardinality Word32) => Binary (PackInto W
                         put card >> put ix
   get = do card <- get @Word32
            ix <- get @Word32
-           bool empty (pure . fromFinite . fromIntegral $ ix) (ix <= card)
+           decodeWith PackInto card ix
 
 instance (Finitary a, Cardinality a <= Cardinality Word64) => Binary (PackInto Word64 a) where
   put (PackInto x) = do let ix = fromIntegral @_ @Word64 . toFinite $ x
@@ -135,7 +136,7 @@ instance (Finitary a, Cardinality a <= Cardinality Word64) => Binary (PackInto W
                         put card >> put ix
   get = do card <- get @Word64
            ix <- get @Word64
-           bool empty (pure . fromFinite . fromIntegral $ ix) (ix <= card)
+           decodeWith PackInto card ix
 
 -- Helpers
 
