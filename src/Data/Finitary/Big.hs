@@ -2,13 +2,14 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFunctor #-}
 
 module Data.Finitary.Big where
 
 import Control.Applicative (Alternative(..))
 import Data.Bool (bool)
 import Numeric.Natural (Natural)
-import GHC.Generics (Generic)
+import GHC.Generics (Generic, Generic1)
 import Type.Reflection (Typeable)
 import Data.Finitary (Finitary(..))
 import Data.Binary (Binary(..))
@@ -18,7 +19,7 @@ import Data.Data (Data)
 import Control.DeepSeq (NFData)
 
 newtype Big a = Big { reduce :: a }
-  deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable, Data) 
+  deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable, Data, Generic1, Functor) 
 
 instance (NFData a) => NFData (Big a)
 

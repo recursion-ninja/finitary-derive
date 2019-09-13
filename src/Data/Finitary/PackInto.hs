@@ -10,6 +10,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFunctor #-}
 
 module Data.Finitary.PackInto 
 (
@@ -23,7 +24,7 @@ import Data.Proxy (Proxy(..))
 import Data.Maybe (fromJust)
 import CoercibleUtils (op, over, over2)
 import Data.Kind (Type)
-import GHC.Generics (Generic)
+import GHC.Generics (Generic, Generic1)
 import Data.Finitary (Finitary(..))
 import GHC.TypeNats
 import Data.Finite (weakenN, strengthenN)
@@ -40,7 +41,7 @@ import qualified Data.Vector.Generic.Mutable as VGM
 
 -- p is the 'pack into' type
 newtype PackInto (p :: Type) (a :: Type) = PackInto { unpackFrom :: a }
-  deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable, Data)
+  deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable, Data, Generic1, Functor)
 
 instance (NFData a) => NFData (PackInto p a)
 
