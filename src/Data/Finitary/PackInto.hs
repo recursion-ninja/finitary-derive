@@ -17,7 +17,6 @@ module Data.Finitary.PackInto
 ) where
 
 import Data.Word (Word8, Word16, Word32, Word64)
-import Data.Proxy (Proxy(..))
 import Data.Maybe (fromJust)
 import CoercibleUtils (op, over, over2)
 import Data.Kind (Type)
@@ -35,8 +34,6 @@ import Control.DeepSeq (NFData)
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
-
-import Data.Finitary.Internal
 
 -- p is the 'pack into' type
 newtype PackInto (p :: Type) (a :: Type) = PackInto { unpackFrom :: a }
@@ -106,43 +103,27 @@ instance (Finitary p, Finitary a, Cardinality a <= Cardinality p, Storable p) =>
 
 instance (Finitary a, Cardinality a <= Cardinality Word8) => Binary (PackInto Word8 a) where
   {-# INLINE put #-}
-  put (PackInto x) = do let ix = fromIntegral @_ @Word8 . toFinite $ x
-                        let card = fromIntegral @_ @Word8 . subtract 1 . natVal @(Cardinality a) $ Proxy
-                        put card >> put ix
+  put = put . fromIntegral @_ @Word8 . toFinite . unpackFrom
   {-# INLINE get #-}
-  get = do card <- get @Word8
-           ix <- get @Word8
-           decodeWith PackInto card ix
+  get = PackInto . fromFinite . fromIntegral <$> get @Word8
 
 instance (Finitary a, Cardinality a <= Cardinality Word16) => Binary (PackInto Word16 a) where
   {-# INLINE put #-}
-  put (PackInto x) = do let ix = fromIntegral @_ @Word16 . toFinite $ x
-                        let card = fromIntegral @_ @Word16 . subtract 1 . natVal @(Cardinality a) $ Proxy
-                        put card >> put ix
+  put = put . fromIntegral @_ @Word16 . toFinite . unpackFrom
   {-# INLINE get #-}
-  get = do card <- get @Word16
-           ix <- get @Word16
-           decodeWith PackInto card ix
+  get = PackInto . fromFinite . fromIntegral <$> get @Word16
 
 instance (Finitary a, Cardinality a <= Cardinality Word32) => Binary (PackInto Word32 a) where
   {-# INLINE put #-}
-  put (PackInto x) = do let ix = fromIntegral @_ @Word32 . toFinite $ x
-                        let card = fromIntegral @_ @Word32 . subtract 1 . natVal @(Cardinality a) $ Proxy
-                        put card >> put ix
+  put = put . fromIntegral @_ @Word32 . toFinite . unpackFrom
   {-# INLINE get #-}
-  get = do card <- get @Word32
-           ix <- get @Word32
-           decodeWith PackInto card ix
+  get = PackInto . fromFinite . fromIntegral <$> get @Word32
 
 instance (Finitary a, Cardinality a <= Cardinality Word64) => Binary (PackInto Word64 a) where
   {-# INLINE put #-}
-  put (PackInto x) = do let ix = fromIntegral @_ @Word64 . toFinite $ x
-                        let card = fromIntegral @_ @Word64 . subtract 1 . natVal @(Cardinality a) $ Proxy
-                        put card >> put ix
+  put = put . fromIntegral @_ @Word64 . toFinite . unpackFrom
   {-# INLINE get #-}
-  get = do card <- get @Word64
-           ix <- get @Word64
-           decodeWith PackInto card ix
+  get = PackInto . fromFinite . fromIntegral <$> get @Word64
 
 -- Helpers
 

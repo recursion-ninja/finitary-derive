@@ -21,7 +21,7 @@ extra-source-files:  CHANGELOG.md,
 library
   exposed-modules:     Data.Finitary.PackInto,
                        Data.Finitary.Big
-  other-modules:       Data.Finitary.Internal
+--  other-modules:       Data.Finitary.Internal
   build-depends:       base >= 4.11 && < 4.13,
                        finitary >= 0.1.0.0 && < 1.0.0.0,
                        vector >= 0.12.0.3 && < 0.13.0.0,
