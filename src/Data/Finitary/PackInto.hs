@@ -30,6 +30,7 @@ import Type.Reflection (Typeable)
 import Data.Binary (Binary(..))
 import Data.Data (Data)
 import Control.DeepSeq (NFData)
+import Data.Hashable (Hashable(..))
 
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
@@ -42,6 +43,10 @@ newtype PackInto (p :: Type) (a :: Type) = PackInto { unpackFrom :: a }
 instance (NFData a) => NFData (PackInto p a)
 
 instance (Finitary a) => Finitary (PackInto p a)
+
+instance (Finitary a, Finitary p, Cardinality a <= Cardinality p, Hashable p) => Hashable (PackInto p a) where
+  {-# INLINE hashWithSalt #-}
+  hashWithSalt salt = hashWithSalt salt . mungeOut 
 
 newtype instance VU.MVector s (PackInto p a) = MV_PackInto (VU.MVector s p)
 

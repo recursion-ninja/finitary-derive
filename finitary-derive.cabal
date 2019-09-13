@@ -21,14 +21,14 @@ extra-source-files:  CHANGELOG.md,
 library
   exposed-modules:     Data.Finitary.PackInto,
                        Data.Finitary.Big
---  other-modules:       Data.Finitary.Internal
   build-depends:       base >= 4.11 && < 4.13,
                        finitary >= 0.1.0.0 && < 1.0.0.0,
                        vector >= 0.12.0.3 && < 0.13.0.0,
                        coercible-utils >= 0.0.0 && < 0.1.0,
                        finite-typelits >= 0.1.4.2 && < 0.2.0.0,
                        binary >= 0.8.5.1 && < 1.0.0.0,
-                       deepseq >= 1.4.3.0 && < 2.0.0.0
+                       deepseq >= 1.4.3.0 && < 2.0.0.0,
+                       hashable >= 1.2.7.0 && < 2.0.0.0
   hs-source-dirs:      src
   default-language:    Haskell2010
 
