@@ -22,7 +22,7 @@ library
   exposed-modules:     Data.Finitary.Small,
                        Data.Finitary.Big
   build-depends:       base >= 4.11 && < 4.13,
-                       finitary >= 0.1.0.0 && < 1.0.0.0,
+                       finitary >= 0.1.0.0 && < 0.2.0.0,
                        vector >= 0.12.0.3 && < 0.13.0.0,
                        coercible-utils >= 0.0.0 && < 0.1.0,
                        finite-typelits >= 0.1.4.2 && < 0.2.0.0,
