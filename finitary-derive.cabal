@@ -19,7 +19,7 @@ extra-source-files:  CHANGELOG.md,
                      README.md
 
 library
-  exposed-modules:     Data.Finitary.SmallAs,
+  exposed-modules:     Data.Finitary.Small,
                        Data.Finitary.Big
   build-depends:       base >= 4.11 && < 4.13,
                        finitary >= 0.1.0.0 && < 1.0.0.0,

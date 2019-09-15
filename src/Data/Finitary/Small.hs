@@ -11,7 +11,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Data.Finitary.SmallAs 
+module Data.Finitary.Small 
 (
   SmallAs(..)
 ) where
