@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -31,4 +32,3 @@ instance (Finitary a) => Binary (Big a) where
   put = put . fromIntegral @_ @Natural . toFinite . reduce
   {-# INLINE get #-}
   get = Big . fromFinite . fromIntegral <$> get @Natural
-
