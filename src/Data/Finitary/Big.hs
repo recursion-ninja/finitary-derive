@@ -37,6 +37,7 @@ import Data.Foldable (traverse_)
 import qualified Control.Monad.State.Strict as MS 
 import qualified Data.Vector.Storable.Sized as VSS
 import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 
 newtype Big a = Big { reduce :: a }
@@ -67,7 +68,6 @@ instance (Finitary a, 1 <= Cardinality a) => Storable (Big a) where
 
 newtype instance VU.MVector s (Big a) = MV_Big (VU.MVector s Word64) 
 
--- MVector
 instance (Finitary a, 1 <= Cardinality a) => VGM.MVector VU.MVector (Big a) where
   {-# INLINE basicLength #-}
   basicLength = (\x -> x `div` lenOf @a) . VGM.basicLength . op MV_Big
@@ -80,14 +80,30 @@ instance (Finitary a, 1 <= Cardinality a) => VGM.MVector VU.MVector (Big a) wher
   {-# INLINE basicInitialize #-}
   basicInitialize = VGM.basicInitialize . op MV_Big
   {-# INLINE basicUnsafeRead #-}
-  basicUnsafeRead (MV_Big v) = _
+  basicUnsafeRead (MV_Big v) i = do arr <- VSS.generateM (VGM.basicUnsafeRead v . (i +) . fromIntegral)
+                                    return (Big . fromFinite . roll @a $ arr)
   {-# INLINE basicUnsafeWrite #-}
-  basicUnsafeWrite (MV_Big v) i x = do let arr = unroll . toFinite . reduce $ x
+  basicUnsafeWrite (MV_Big v) i x = do let arr = unroll @a . toFinite . reduce $ x
                                        let ixes = [i .. (i * lenOf @a - 1)]
-                                       traverse_ (\j -> VGM.basicUnsafeWrite v j _) ixes
+                                       traverse_ (\j -> VGM.basicUnsafeWrite v j (VSS.unsafeIndex arr (j - i))) ixes
 
--- Vector
--- argh
+newtype instance VU.Vector (Big a) = V_Big (VU.Vector Word64)
+
+instance (Finitary a, 1 <= Cardinality a) => VG.Vector VU.Vector (Big a) where
+  {-# INLINE basicUnsafeFreeze #-}
+  basicUnsafeFreeze = fmap V_Big . VG.basicUnsafeFreeze . op MV_Big
+  {-# INLINE basicUnsafeThaw #-}
+  basicUnsafeThaw = fmap MV_Big . VG.basicUnsafeThaw . op V_Big
+  {-# INLINE basicLength #-}
+  basicLength = over V_Big VG.basicLength
+  {-# INLINE basicUnsafeSlice #-}
+  basicUnsafeSlice i len = over V_Big (VG.basicUnsafeSlice (i * lenOf @a) (len * lenOf @a))
+  {-# INLINE basicUnsafeIndexM #-}
+  basicUnsafeIndexM (V_Big v) i = do arr <- VSS.generateM (VG.basicUnsafeIndexM v . (i +) . fromIntegral)
+                                     return (Big. fromFinite . roll @a $ arr)  
+  
+
+instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (Big a)
 
 -- Helpers
 type UnrollVectorLen a = CLog (Cardinality Word64) (Cardinality a)
