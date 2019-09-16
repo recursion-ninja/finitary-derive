@@ -31,11 +31,13 @@ import Data.Finite (Finite)
 import Data.Proxy (Proxy(..))
 import Foreign.Storable (Storable(..))
 import Foreign.Ptr (castPtr)
+import CoercibleUtils (op, over, over2)
+import Data.Foldable (traverse_)
 
 import qualified Control.Monad.State.Strict as MS 
 import qualified Data.Vector.Storable.Sized as VSS
 import qualified Data.Vector.Unboxed as VU
--- import qualified Data.Vector.Generic.Mutable as VGM
+import qualified Data.Vector.Generic.Mutable as VGM
 
 newtype Big a = Big { reduce :: a }
   deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable, Data, Generic1, Functor, Semigroup, Monoid, Num) 
@@ -66,11 +68,33 @@ instance (Finitary a, 1 <= Cardinality a) => Storable (Big a) where
 newtype instance VU.MVector s (Big a) = MV_Big (VU.MVector s Word64) 
 
 -- MVector
+instance (Finitary a, 1 <= Cardinality a) => VGM.MVector VU.MVector (Big a) where
+  {-# INLINE basicLength #-}
+  basicLength = (\x -> x `div` lenOf @a) . VGM.basicLength . op MV_Big
+  {-# INLINE basicUnsafeSlice #-}
+  basicUnsafeSlice i len = over MV_Big (VGM.basicUnsafeSlice (i * lenOf @a) (len * lenOf @a))
+  {-# INLINE basicOverlaps #-}
+  basicOverlaps = over2 MV_Big VGM.basicOverlaps
+  {-# INLINE basicUnsafeNew #-}
+  basicUnsafeNew len = MV_Big <$> VGM.basicUnsafeNew (len * lenOf @a)
+  {-# INLINE basicInitialize #-}
+  basicInitialize = VGM.basicInitialize . op MV_Big
+  {-# INLINE basicUnsafeRead #-}
+  basicUnsafeRead (MV_Big v) = _
+  {-# INLINE basicUnsafeWrite #-}
+  basicUnsafeWrite (MV_Big v) i x = do let arr = unroll . toFinite . reduce $ x
+                                       let ixes = [i .. (i * lenOf @a - 1)]
+                                       traverse_ (\j -> VGM.basicUnsafeWrite v j _) ixes
+
 -- Vector
 -- argh
 
 -- Helpers
 type UnrollVectorLen a = CLog (Cardinality Word64) (Cardinality a)
+
+{-# INLINE lenOf #-}
+lenOf :: forall a . (Finitary a, 1 <= Cardinality a) => Int
+lenOf = fromIntegral . natVal @(UnrollVectorLen a) $ Proxy
 
 {-# INLINE unroll #-}
 unroll :: (Finitary a, 1 <= Cardinality a) => Finite (Cardinality a) -> VSS.Vector (UnrollVectorLen a) Word64
