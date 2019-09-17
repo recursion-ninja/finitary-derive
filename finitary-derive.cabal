@@ -1,22 +1,24 @@
-cabal-version:       2.2
-name:                finitary-derive
--- PVP summary:      +-+------- breaking API changes
---                   | | +----- non-breaking API additions
---                   | | | +--- code changes with no API change
-version:             0.1.0.0
-synopsis:            Various derivations for types with Finite instances.
+cabal-version:         2.2
+name:                  finitary-derive
+-- PVP summary:        +-+------- breaking API changes
+--                     | | +----- non-breaking API additions
+--                     | | | +--- code changes with no API change
+version:               1.0.0.0
+synopsis:              Various derivations for types with Finite instances.
 -- description:
-homepage:            https://notabug.org/koz.ross/finitary-derive
-license:             GPL-3.0-or-later
-license-file:        LICENSE.md
-author:              Koz Ross
-maintainer:          koz.ross@retro-freedom.nz
-copyright:           (C) Koz Ross 2019
-category:            Data
-tested-with:         GHC == 8.6.5
-build-type:          Simple
-extra-source-files:  CHANGELOG.md,
-                     README.md
+homepage:              https://notabug.org/koz.ross/finitary-derive
+license:               GPL-3.0-or-later
+license-file:          LICENSE.md
+author:                Koz Ross
+maintainer:            koz.ross@retro-freedom.nz
+copyright:             (C) Koz Ross 2019
+category:              Data
+tested-with:           GHC == 8.4.4,
+                       GHC == 8.6.5,
+                       GHC == 8.8.1
+build-type:            Simple
+extra-source-files:    CHANGELOG.md,
+                       README.md
 
 library
   exposed-modules:     Data.Finitary.Pack
