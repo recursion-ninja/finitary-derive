@@ -42,8 +42,8 @@
 -- Stability:     Experimental
 -- Portability:   GHC only
 --
--- Defines a newtype for easy derivation of 'Data.Vector.Unboxed.Unbox', 'Storable' and 'Data.Binary.Binary'
--- instances for any type with a 'Finitary' instance. The easiest way to use
+-- Defines a newtype for easy derivation of 'Data.Vector.Unboxed.Unbox', 'Storable', 
+-- 'Data.Binary.Binary' and 'Hashable' instances for any type with a 'Finitary' instance. The easiest way to use
 -- this is with the @DerivingVia@ extension:
 --
 -- > {-# LANGUAGE DeriveAnyClass #-}
@@ -53,10 +53,11 @@
 -- > import Data.Finitary
 -- > import Data.Finitary.Pack
 -- > import Data.Word
+-- > import Data.Hashable
 -- >
 -- > data Foo = Bar | Baz (Word8, Word8) | Quux Word16
 -- >  deriving (Eq, Generic, Finitary)
--- >  deriving (Storable, Binary) via (Pack Foo)
+-- >  deriving (Storable, Binary, Hashable) via (Pack Foo)
 -- 
 -- Alternatively, you can just use @Pack a@ instead of @a@ wherever appropriate.
 -- Unfortunately (due to role restrictions on unboxed vectors), you /must/ use
@@ -93,9 +94,8 @@ import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Sized as VUS
 import qualified Data.Binary as B
 
--- | A wrapper to define instances of 'Data.Vector.Unboxed.Unbox', 'Storable' and 'Data.Binary.Binary' for
--- types with 'Finitary' instances. So named due to the \'packing\' of the type's indices
--- densely into arrays, memory or bits respectively.
+-- | Essentially @Identity a@, but with different instances. So named due to the \'packing\' of the 
+-- type's indices densely into arrays, memory or bits respectively.
 newtype Pack a = Pack { unPack :: a }
   deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable, Data, Generic1, Functor, Semigroup, Monoid)
 

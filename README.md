@@ -8,8 +8,8 @@ can be difficult, fiddly, and frustrating. ``Storable`` is not much better. This
 is the kind of 'work' that we as Haskellers ought not to put up with.
 
 Now, you don't have to! As long as your type is [``Finitary``][2], you can now
-get ``Unbox`` and ``Storable`` (as well as ``Binary``, because we could)
-instances _almost_ automagically:
+get ``Unbox`` and ``Storable`` (as well as ``Binary`` and ``Hashable``, because 
+we could) instances _almost_ automagically:
 
 ```haskell
 {-# LANGUAGE DeriveAnyClass #-}
@@ -19,12 +19,13 @@ instances _almost_ automagically:
 import Data.Finitary
 import Data.Finitary.Pack
 import Data.Word
+import Data.Hashable
 
 import qualified Data.Vector.Unboxed as VU
 
 data Foo = Bar | Baz (Word8, Word8) | Quux Word16
   deriving (Eq, Generic, Finitary)
-  deriving (Storable, Binary) via (Pack Foo)
+  deriving (Storable, Binary, Hashable) via (Pack Foo)
 
 someVector :: VU.Vector (Pack Foo)
 someVector = VU.fromList . fmap Pack $ [Bar, Baz 0x0 0xf, Quux 0x134]
