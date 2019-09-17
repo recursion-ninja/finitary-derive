@@ -46,5 +46,6 @@ test-suite tests
   -- other-modules:
   hs-source-dirs:      test
   build-depends:       base,
-                       hedgehog >= 1.0.1 && < 1.1
+                       hedgehog >= 1.0.1 && < 1.1,
+                       hedgehog-classes >= 0.2.4 && < 0.3.0
   default-language:    Haskell2010
