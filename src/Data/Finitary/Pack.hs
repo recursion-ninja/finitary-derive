@@ -16,7 +16,7 @@
 
 module Data.Finitary.Pack 
 (
-  Pack(..), packWords, unpackWords
+  Pack(..)
 ) where
 
 import Data.Foldable (traverse_)
@@ -108,6 +108,8 @@ instance (Finitary a, 1 <= Cardinality a) => VG.Vector VU.Vector (Pack a) where
 
 instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (Pack a)
 
+-- helpers
+
 type WordCount a = CLog (Cardinality Word8) (Cardinality a)
 
 {-# INLINE packWords #-}
@@ -124,8 +126,6 @@ unpackWords v = Pack . fromFinite . evalState (VGS.foldM go 0 v) $ 1
   where go acc w = do power <- get
                       modify (\x -> x * natVal @(Cardinality Word8) Proxy)
                       return (acc + fromIntegral power * fromIntegral w)
-
--- Helpers
 
 {-# INLINE lenOf #-}  
 lenOf :: forall a . (Finitary a, 1 <= Cardinality a) => Int
