@@ -95,7 +95,7 @@ import qualified Data.Vector.Unboxed.Sized as VUS
 import qualified Data.Binary as B
 
 -- | Essentially @Identity a@, but with different instances. So named due to the \'packing\' of the 
--- type's indices densely into arrays, memory or bits respectively.
+-- type's indices densely into arrays, memory or bits.
 newtype Pack a = Pack { unPack :: a }
   deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable, Data, Generic1, Functor, Semigroup, Monoid)
 
