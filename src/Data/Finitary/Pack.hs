@@ -1,6 +1,24 @@
+{-
+ - Copyright (C) 2019  Koz Ross <koz.ross@retro-freedom.nz>
+ -
+ - This program is free software: you can redistribute it and/or modify
+ - it under the terms of the GNU General Public License as published by
+ - the Free Software Foundation, either version 3 of the License, or
+ - (at your option) any later version.
+ -
+ - This program is distributed in the hope that it will be useful,
+ - but WITHOUT ANY WARRANTY; without even the implied warranty of
+ - MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ - GNU General Public License for more details.
+ -
+ - You should have received a copy of the GNU General Public License
+ - along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ -}
+
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Extra.Solver #-}
 
+{-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -14,6 +32,36 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
+-- | 
+-- Module:        Data.Finitary.Pack
+-- Description:   A wrapper around @Finitary@ types, designed to provide easy
+--                derivation of @Storable@, @Binary@ and @Unbox@ instances.
+-- Copyright:     (C) Koz Ross, 2019
+-- License:       GPL version 3.0 or later
+-- Maintainer:    koz.ross@retro-freedom.nz
+-- Stability:     Experimental
+-- Portability:   GHC only
+--
+-- Defines a newtype for easy derivation of 'Data.Vector.Unboxed.Unbox', 'Storable' and 'Data.Binary.Binary'
+-- instances for any type with a 'Finitary' instance. The easiest way to use
+-- this is with the @DerivingVia@ extension:
+--
+-- > {-# LANGUAGE DeriveAnyClass #-}
+-- > {-# LANGUAGE DeriveGeneric #-}
+-- > {-# LANGUAGE DerivingVia #-}
+-- >
+-- > import Data.Finitary
+-- > import Data.Finitary.Pack
+-- > import Data.Word
+-- >
+-- > data Foo = Bar | Baz (Word8, Word8) | Quux Word16
+-- >  deriving (Eq, Generic, Finitary)
+-- >  deriving (Storable, Binary) via (Pack Foo)
+-- 
+-- Alternatively, you can just use @Pack a@ instead of @a@ wherever appropriate.
+-- Unfortunately (due to role restrictions on unboxed vectors), you /must/ use
+-- @Pack a@ if you want a 'Data.Vector.Unboxed.Vector' full of @a@s -
+-- @DerivingVia@ is of no help here.
 module Data.Finitary.Pack 
 (
   Pack(..)
@@ -45,6 +93,9 @@ import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Sized as VUS
 import qualified Data.Binary as B
 
+-- | A wrapper to define instances of 'Data.Vector.Unboxed.Unbox', 'Storable' and 'Data.Binary.Binary' for
+-- types with 'Finitary' instances. So named due to the \'packing\' of the type's indices
+-- densely into arrays, memory or bits respectively.
 newtype Pack a = Pack { unPack :: a }
   deriving (Eq, Ord, Bounded, Generic, Show, Read, Typeable, Data, Generic1, Functor, Semigroup, Monoid)
 
@@ -52,16 +103,20 @@ instance (NFData a) => NFData (Pack a)
 
 instance (Finitary a) => Finitary (Pack a)
 
+-- | We can hash any @Finitary@ by hashing its index.
 instance (Finitary a, 1 <= Cardinality a) => Hashable (Pack a) where
   {-# INLINE hashWithSalt #-}
   hashWithSalt salt = hashWithSalt salt . packWords @VU.Vector 
 
+-- | We can serialize any @Finitary@ by serializing its index.
 instance (Finitary a, 1 <= Cardinality a) => B.Binary (Pack a) where
   {-# INLINE put #-}
   put = B.put . packWords @VU.Vector
   {-# INLINE get #-}
   get = unpackWords @VU.Vector <$> B.get
 
+-- | As @Finitary@ instances have known limits on their indices, they can be
+-- stored as their indices.
 instance (Finitary a, 1 <= Cardinality a) => Storable (Pack a) where
   {-# INLINE sizeOf #-}
   sizeOf _ = sizeOf (undefined :: VSS.Vector (WordCount a) Word8)
@@ -106,6 +161,9 @@ instance (Finitary a, 1 <= Cardinality a) => VG.Vector VU.Vector (Pack a) where
   {-# INLINE basicUnsafeIndexM #-}
   basicUnsafeIndexM (V_Pack v) i = unpackWords <$> VSS.generateM (VG.basicUnsafeIndexM v . (i +) . fromIntegral)
 
+-- | We can rely on the fact that indexes of any @Finitary@ type have a fixed
+-- maximum size to \'unravel\' them into a block of 'Word8's, which we can
+-- easily unbox.
 instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (Pack a)
 
 -- helpers

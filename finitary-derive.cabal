@@ -4,8 +4,11 @@ name:                  finitary-derive
 --                     | | +----- non-breaking API additions
 --                     | | | +--- code changes with no API change
 version:               1.0.0.0
-synopsis:              Various derivations for types with Finite instances.
--- description:
+synopsis:              Easy and efficient Unbox, Storable and Binary 
+                       instances for Finitary types.
+description:           Provides a wrapper with pre-made instances of Unbox,
+                       Storable and Binary, suitable for use with types that
+                       have Finitary instances. Never write Unbox by hand again!
 homepage:              https://notabug.org/koz.ross/finitary-derive
 license:               GPL-3.0-or-later
 license-file:          LICENSE.md
