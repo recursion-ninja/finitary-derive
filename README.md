@@ -48,6 +48,8 @@ limitation closely too.
 
 Certainly - we've tested on GHC 8.4.4, 8.6.5 and 8.8.1, on GNU/Linux only. If
 you would like support for any additional GHC versions, let us know.
+Unfortunately, while the library will _build_ on 8.4.4, due to
+``hedgehog-classes`` being limited to 8.6+, tests cannot be run on this version.
 
 If you build and use this library successfully on any other platforms, we'd like
 to know too - it'd be beneficial even if nothing breaks, and _especially_ if

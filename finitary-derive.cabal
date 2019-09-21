@@ -3,8 +3,8 @@ name:                  finitary-derive
 -- PVP summary:        +-+------- breaking API changes
 --                     | | +----- non-breaking API additions
 --                     | | | +--- code changes with no API change
-version:               1.0.0.0
-synopsis:              Easy and efficient Unbox, Storable, Binary and Hashable
+version:               1.0.0.1
+synopsis:              Easy and efficient Unbox, Storable, Binary and Hashable 
                        instances for Finitary types.
 description:           Provides a wrapper with pre-made instances of Unbox,
                        Storable, Binary and Hashable, suitable for use with types that
@@ -26,7 +26,7 @@ extra-source-files:    CHANGELOG.md,
 library
   exposed-modules:     Data.Finitary.Pack
   build-depends:       base >= 4.11 && < 4.14,
-                       finitary >= 1.0.0.0 && < 1.1.0.0,
+                       finitary >= 1.1.0.0 && < 1.2.0.0,
                        vector >= 0.12.0.3 && < 0.13.0.0,
                        coercible-utils >= 0.0.0 && < 0.1.0,
                        finite-typelits >= 0.1.4.2 && < 0.2.0.0,
@@ -44,7 +44,7 @@ test-suite tests
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
   hs-source-dirs:      test
-  build-depends:       base,
+  build-depends:       base >= 4.12 && < 4.14,
                        hedgehog >= 1.0.1 && < 1.1,
                        hedgehog-classes >= 0.2.4 && < 0.3.0,
                        finitary-derive,
