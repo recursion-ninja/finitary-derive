@@ -3,7 +3,7 @@ name:                  finitary-derive
 -- PVP summary:        +-+------- breaking API changes
 --                     | | +----- non-breaking API additions
 --                     | | | +--- code changes with no API change
-version:               1.0.0.1
+version:               2.0.0.0
 synopsis:              Easy and efficient Unbox, Storable, Binary and Hashable 
                        instances for Finitary types.
 description:           Provides a wrapper with pre-made instances of Unbox,

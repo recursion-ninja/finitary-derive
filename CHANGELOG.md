@@ -1,5 +1,9 @@
 # Revision history for finitary-derive
 
+## 2.0.0.0 --
+
+
+
 ## 1.0.0.1 -- 2019-09-21
 
 * Fix documentation.
