@@ -20,6 +20,8 @@ import Data.Finitary (Finitary(..))
 import Numeric.Natural (Natural)
 import Control.Monad.Trans.State.Strict (evalState, get, put, modify)
 import Data.Proxy (Proxy(..))
+import Data.Hashable (Hashable(..))
+import Data.Vector.Instances ()
 
 import qualified Data.Bit.ThreadSafe as BT
 import qualified Data.Vector.Unboxed.Sized as VUS 
@@ -27,9 +29,11 @@ import qualified Data.Vector.Unboxed.Sized as VUS
 type BitCount a = CLog 2 (Cardinality a)
 
 newtype PackBits a = PackBits (VUS.Vector (BitCount a) BT.Bit)
-  deriving (Eq)
+  deriving (Eq, Ord)
 
--- Bit needs a Hashable instance
+instance Hashable (PackBits a) where
+  hashWithSalt salt (PackBits v) = hashWithSalt salt . BT.cloneToWords . VUS.fromSized $ v
+
 -- Finitary is a must
 -- Others?
 -- Can't be Storable because alignment
