@@ -1,16 +1,20 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Extra.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Data.Finitary.PackBits 
 (
-  PackBits, intoBits, outOfBits
+  PackBits 
+  -- intoBits, outOfBits
 ) where
 
 import Data.Kind (Type)
@@ -24,20 +28,26 @@ import Data.Hashable (Hashable(..))
 import Data.Vector.Instances ()
 
 import qualified Data.Bit.ThreadSafe as BT
-import qualified Data.Vector.Unboxed.Sized as VUS 
+import qualified Data.Vector.Unboxed as VS
 
 type BitCount a = CLog 2 (Cardinality a)
 
-newtype PackBits a = PackBits (VUS.Vector (BitCount a) BT.Bit)
+-- I AM RESPONSIBLE FOR ZEROING
+newtype PackBits (a :: Type) = PackBits (VS.Vector BT.Bit)
   deriving (Eq, Ord)
 
+instance (Finitary a, 1 <= Cardinality a) => Finitary (PackBits a) where
+  type Cardinality (PackBits a) = BitCount a
+  fromFinite = 
+
 instance Hashable (PackBits a) where
-  hashWithSalt salt (PackBits v) = hashWithSalt salt . BT.cloneToWords . VUS.fromSized $ v
+  hashWithSalt salt (PackBits v) = hashWithSalt salt . BT.cloneToWords $ v
 
 -- Finitary is a must
 -- Others?
 -- Can't be Storable because alignment
 
+{-
 intoBits :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
   a -> PackBits a 
@@ -54,3 +64,12 @@ outOfBits (PackBits v) = fromFinite . evalState (VUS.foldM go 0 v) $ (1 :: Integ
   where go acc w = do power <- get
                       modify (* 2)
                       return (acc + fromIntegral power * fromIntegral w)
+-}
+-- Helpers
+
+{-
+bitLength :: forall (a :: Type) (b :: Type) . 
+  (Finitary a, 1 <= Cardinality a, Num b) => 
+  b
+bitLength = fromIntegral . natVal $ (Proxy :: Proxy (BitCount a))
+-}
