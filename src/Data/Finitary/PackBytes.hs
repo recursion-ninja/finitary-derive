@@ -60,6 +60,10 @@ instance (Finitary a) => Finitary (PackBytes a) where
   fromFinite = PackBytes . intoBytes
   toFinite = outOfBytes . op PackBytes
 
+instance (Finitary a, 1 <= Cardinality a) => Bounded (PackBytes a) where
+  minBound = start
+  maxBound = end
+
 instance (Finitary a, 1 <= Cardinality a) => Storable (PackBytes a) where
   sizeOf _ = byteLength @a
   alignment _ = alignment (undefined :: Word8)

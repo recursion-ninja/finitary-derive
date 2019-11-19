@@ -12,7 +12,10 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Data.Finitary.PackWords where
+module Data.Finitary.PackWords 
+(
+  PackWords, pattern Packed
+) where
 
 import Data.Vector.Instances ()
 import GHC.TypeNats
@@ -54,6 +57,10 @@ instance (Finitary a) => Finitary (PackWords a) where
   type Cardinality (PackWords a) = Cardinality a
   fromFinite = PackWords . intoWords
   toFinite = outOfWords . op PackWords
+
+instance (Finitary a, 1 <= Cardinality a) => Bounded (PackWords a) where
+  minBound = start
+  maxBound = end
 
 instance (Finitary a, 1 <= Cardinality a) => Storable (PackWords a) where
   sizeOf _ = wordLength @a * bytesPerWord
