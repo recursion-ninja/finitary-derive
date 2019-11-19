@@ -26,7 +26,7 @@
 
 -- |
 -- Module:        Data.Finitary.PackInto
--- Description:   Scheme for packing @Finitary@ types into other @Finitary
+-- Description:   Scheme for packing @Finitary@ types into other @Finitary@
 --                types.
 -- Copyright:     (C) Koz Ross 2019
 -- License:       GPL version 3.0 or later
