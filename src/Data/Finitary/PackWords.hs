@@ -1,3 +1,20 @@
+{-
+ - Copyright (C) 2019  Koz Ross <koz.ross@retro-freedom.nz>
+ -
+ - This program is free software: you can redistribute it and/or modify
+ - it under the terms of the GNU General Public License as published by
+ - the Free Software Foundation, either version 3 of the License, or
+ - (at your option) any later version.
+ -
+ - This program is distributed in the hope that it will be useful,
+ - but WITHOUT ANY WARRANTY; without even the implied warranty of
+ - MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ - GNU General Public License for more details.
+ -
+ - You should have received a copy of the GNU General Public License
+ - along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ -}
+
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Extra.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
@@ -12,6 +29,33 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
+-- |
+-- Module:        Data.Finitary.PackBytes
+-- Description:   Scheme for byte-packing @Finitary@ types.
+-- Copyright:     (C) Koz Ross 2019
+-- License:       GPL version 3.0 or later
+-- Maintainer:    koz.ross@retro-freedom.nz
+-- Stability:     Experimental
+-- Portability:   GHC only
+--
+-- If a type @a@ is 'Finitary', each inhabitant of @a@ has an index, which can
+-- be represented as an unsigned integer, spread across one or more machine
+-- words. This unsigned integer will have fixed length (as the number of
+-- inhabitants of @a@ is finite). We can use this to derive a 'VU.Unbox'
+-- instance, by representing 'VU.Vector' as a large array of machine words. We
+-- can also derive a 'Storable' instance similarly.
+--
+-- This is the most efficient encoding of an arbitrary finitary type, both due
+-- to the asymptotics of encoding and decoding (logarithmic in @Cardinality a@
+-- with base @Cardinality Word@) and the fact that word accesses are faster than
+-- byte and bit accesses on almost all architectures. Unless you have concerns
+-- regarding space, this encoding is a good choice.
+--
+-- Unless your type's cardinality is extremely large (a non-trivial multiple of
+-- @Cardinality Word@), this encoding is wasteful. If your type's cardinality is
+-- smaller than that of @Word@, you should consider "Data.Finitary.PackInto"
+-- instead, as you will have much larger control over space usage at almost no
+-- performance penalty. 
 module Data.Finitary.PackWords 
 (
   PackWords, pattern Packed
@@ -36,11 +80,28 @@ import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 
+-- | An opaque wrapper around @a@, representing each value as a fixed-length
+-- array of machine words.
 newtype PackWords (a :: Type) = PackWords (VU.Vector Word)
   deriving (Eq, Ord)
 
 type role PackWords nominal
 
+-- | To provide (something that resembles a) data constructor for 'PackWords', we
+-- provide the following pattern. It can be used like any other data
+-- constructor:
+--
+-- > import Data.Finitary.PackWords
+-- >
+-- > anInt :: PackWords Int
+-- > anInt = Packed 10
+-- >
+-- > isPackedEven :: PackWords Int -> Bool
+-- > isPackedEven (Packed x) = even x
+--
+-- __Every__ pattern match, and data constructor call, performs a
+-- \(\Theta(\log_{\texttt{Cardinality Word}}(\texttt{Cardinality a}))\) encoding or decoding of @a@.
+-- Use with this in mind.
 pattern Packed :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
   PackWords a -> a

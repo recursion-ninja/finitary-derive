@@ -107,8 +107,8 @@ type role PackBits nominal
 -- > isPackedEven (Packed x) = even x
 --
 -- __Every__ pattern match, and data constructor call, performs a
--- \(\Theta(\texttt{Cardinality a})\) encoding or decoding of @a@. Use with this
--- in mind.
+-- \(\Theta(\log_{2}(\texttt{Cardinality a}))\) encoding or decoding operation. 
+-- Use with this in mind.
 pattern Packed :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
   PackBits a -> a

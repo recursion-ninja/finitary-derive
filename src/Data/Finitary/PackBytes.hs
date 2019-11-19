@@ -1,3 +1,20 @@
+{-
+ - Copyright (C) 2019  Koz Ross <koz.ross@retro-freedom.nz>
+ -
+ - This program is free software: you can redistribute it and/or modify
+ - it under the terms of the GNU General Public License as published by
+ - the Free Software Foundation, either version 3 of the License, or
+ - (at your option) any later version.
+ -
+ - This program is distributed in the hope that it will be useful,
+ - but WITHOUT ANY WARRANTY; without even the implied warranty of
+ - MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ - GNU General Public License for more details.
+ -
+ - You should have received a copy of the GNU General Public License
+ - along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ -}
+
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Extra.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
@@ -13,6 +30,33 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeOperators #-}
 
+-- |
+-- Module:        Data.Finitary.PackBytes
+-- Description:   Scheme for byte-packing @Finitary@ types.
+-- Copyright:     (C) Koz Ross 2019
+-- License:       GPL version 3.0 or later
+-- Maintainer:    koz.ross@retro-freedom.nz
+-- Stability:     Experimental
+-- Portability:   GHC only
+--
+-- If a type @a@ is 'Finitary', each inhabitant of @a@ has an index, which can
+-- be represented as a byte string of a fixed length (as the number of indexes
+-- is finite). Essentially, we can represent any value of @a@ as a fixed-length
+-- string over an alphabet of cardinality \(256\). Based on this, we can derive
+-- a 'VU.Unbox' instance, representing a 'VU.Vector' as a large byte string.
+-- This also allows us to provide a 'Storable' instance for @a@.
+--
+-- This encoding is fairly tight in terms of space use, especially for types
+-- whose cardinalities are large. Additionally, byte-access is considerably
+-- faster than bit-access on most architectures. If your types have large
+-- cardinalities, and minimal space use isn't a concern, this encoding is good.
+--
+-- Some architectures prefer whole-word access - on these, there can be some
+-- overheads using this encoding. Additionally, the encoding and decoding step
+-- for this encoding is longer than the one for "Data.Finitary.PackWords". If 
+-- @Cardinality a < Cardinality Word@, you should 
+-- consider a different encoding - in particular, check "Data.Finitary.PackInto", 
+-- which is more flexible and faster, with greater control over space usage.
 module Data.Finitary.PackBytes 
 (
   PackBytes, pattern Packed
@@ -38,11 +82,27 @@ import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 
+-- | An opaque wrapper around @a@, representing each value as a byte string.
 newtype PackBytes (a :: Type) = PackBytes (VU.Vector Word8)
   deriving (Eq, Ord)
 
 type role PackBytes nominal
 
+-- | To provide (something that resembles a) data constructor for 'PackBytes', we
+-- provide the following pattern. It can be used like any other data
+-- constructor:
+--
+-- > import Data.Finitary.PackBytes
+-- >
+-- > anInt :: PackBytes Int
+-- > anInt = Packed 10
+-- >
+-- > isPackedEven :: PackBytes Int -> Bool
+-- > isPackedEven (Packed x) = even x
+--
+-- __Every__ pattern match, and data constructor call, performs a
+-- \(\Theta(\log_{256}(\texttt{Cardinality a}))\) encoding or decoding of @a@.
+-- Use with this in mind.
 pattern Packed :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
   PackBytes a -> a
