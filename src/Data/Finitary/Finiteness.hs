@@ -15,14 +15,15 @@ module Data.Finitary.Finiteness
 import GHC.TypeNats
 import Data.Typeable (Typeable)
 import Data.Data (Data)
-import Data.Finitary (Finitary(..))
+import Data.Finitary (Finitary(..), inhabitantsFromTo)
 import Data.Ord (comparing)
 import Control.DeepSeq (NFData(..))
 import Data.Hashable (Hashable(..))
 import Data.Binary (Binary(..))
+import Data.Ix (Ix(..))
 
 newtype Finiteness a = Finiteness { unFiniteness :: a }
-  deriving (Show, Read, Typeable, Data, Functor, Semigroup, Monoid)
+  deriving (Eq, Show, Read, Typeable, Data, Functor, Semigroup, Monoid)
 
 instance (Finitary a) => Finitary (Finiteness a) where
   type Cardinality (Finiteness a) = Cardinality a
@@ -38,10 +39,6 @@ instance (Finitary a) => Finitary (Finiteness a) where
   previous = fmap Finiteness . previous . unFiniteness
   {-# INLINE next #-}
   next = fmap Finiteness . next . unFiniteness
-
-instance (Finitary a) => Eq (Finiteness a) where
-  {-# INLINE (==) #-}
-  (Finiteness x) == (Finiteness y) = toFinite x == toFinite y
 
 instance (Finitary a) => Ord (Finiteness a) where
   {-# INLINE compare #-}
@@ -66,3 +63,11 @@ instance (Finitary a) => Binary (Finiteness a) where
   put = put . fromIntegral @_ @Integer . toFinite . unFiniteness
   {-# INLINE get #-}
   get = Finiteness . fromFinite . fromIntegral @Integer <$> get
+
+instance (Finitary a) => Ix (Finiteness a) where
+  {-# INLINE range #-}
+  range (lo, hi) = inhabitantsFromTo lo hi
+  {-# INLINE index #-}
+  index (lo, _) = fromIntegral . (\i -> i - toFinite lo) . toFinite
+  {-# INLINE inRange #-}
+  inRange (lo, hi) x = lo <= x && x <= hi
