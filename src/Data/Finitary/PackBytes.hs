@@ -32,7 +32,7 @@ import Foreign.Storable (Storable(..))
 import Foreign.Ptr (castPtr, plusPtr)
 import Numeric.Natural (Natural)
 import Data.Finite (Finite)
-import Control.Monad.Trans.State.Strict (evalState, get, modify)
+import Control.Monad.Trans.State.Strict (evalState, get, modify, put)
 
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
@@ -44,7 +44,7 @@ newtype PackBytes (a :: Type) = PackBytes (VU.Vector Word8)
 type role PackBytes nominal
 
 pattern Packed :: forall (a :: Type) . 
-  (Finitary a) => 
+  (Finitary a, 1 <= Cardinality a) => 
   PackBytes a -> a
 pattern Packed x <- (packBytes -> x)
   where Packed x = unpackBytes x
@@ -55,7 +55,7 @@ instance Hashable (PackBytes a) where
 instance NFData (PackBytes a) where
   rnf = rnf . op PackBytes
 
-instance (Finitary a) => Finitary (PackBytes a) where
+instance (Finitary a, 1 <= Cardinality a) => Finitary (PackBytes a) where
   type Cardinality (PackBytes a) = Cardinality a
   fromFinite = PackBytes . intoBytes
   toFinite = outOfBytes . op PackBytes
@@ -106,22 +106,22 @@ byteLength :: forall (a :: Type) (b :: Type) .
 byteLength = fromIntegral . natVal $ (Proxy :: Proxy (ByteLength a)) 
 
 packBytes :: forall (a :: Type) . 
-  (Finitary a) => 
+  (Finitary a, 1 <= Cardinality a) => 
   a -> PackBytes a
 packBytes = fromFinite . toFinite
 
 unpackBytes :: forall (a :: Type) . 
-  (Finitary a) => 
+  (Finitary a, 1 <= Cardinality a) => 
   PackBytes a -> a
 unpackBytes = fromFinite . toFinite
 
 intoBytes :: forall (n :: Nat) . 
-  (KnownNat n) => 
+  (KnownNat n, 1 <= n) => 
   Finite n -> VU.Vector Word8
-intoBytes = VU.unfoldr go . fromIntegral @_ @Natural
-  where go 0 = Nothing
-        go n = let (d, r) = quotRem n 256 in
-                  Just (fromIntegral r, d)
+intoBytes = evalState (VU.replicateM (byteLength @(Finite n)) go) . fromIntegral @_ @Natural
+  where go = do remaining <- get
+                let (d, r) = quotRem remaining 256
+                put d >> pure (fromIntegral r)
 
 outOfBytes :: forall (n :: Nat) . 
   (KnownNat n) =>

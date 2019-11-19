@@ -30,7 +30,7 @@ import Foreign.Ptr (castPtr, plusPtr)
 import Numeric.Natural (Natural)
 import Data.Hashable (Hashable(..))
 import Control.DeepSeq (NFData(..))
-import Control.Monad.Trans.State.Strict (evalState, get, modify)
+import Control.Monad.Trans.State.Strict (evalState, get, modify, put)
 
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
@@ -42,7 +42,7 @@ newtype PackWords (a :: Type) = PackWords (VU.Vector Word)
 type role PackWords nominal
 
 pattern Packed :: forall (a :: Type) . 
-  (Finitary a) => 
+  (Finitary a, 1 <= Cardinality a) => 
   PackWords a -> a
 pattern Packed x <- (packWords -> x)
   where Packed x = unpackWords x
@@ -53,7 +53,7 @@ instance Hashable (PackWords a) where
 instance NFData (PackWords a) where
   rnf = rnf . op PackWords
 
-instance (Finitary a) => Finitary (PackWords a) where
+instance (Finitary a, 1 <= Cardinality a) => Finitary (PackWords a) where
   type Cardinality (PackWords a) = Cardinality a
   fromFinite = PackWords . intoWords
   toFinite = outOfWords . op PackWords
@@ -114,22 +114,22 @@ wordLength :: forall (a :: Type) (b :: Type) .
 wordLength = fromIntegral . natVal $ (Proxy :: Proxy (WordLength a))
 
 packWords :: forall (a :: Type) . 
-  (Finitary a) => 
+  (Finitary a, 1 <= Cardinality a) => 
   a -> PackWords a
 packWords = fromFinite . toFinite
 
 unpackWords :: forall (a :: Type) . 
-  (Finitary a) => 
+  (Finitary a, 1 <= Cardinality a) => 
   PackWords a -> a
 unpackWords = fromFinite . toFinite
 
 intoWords :: forall (n :: Nat) . 
-  (KnownNat n) => 
+  (KnownNat n, 1 <= n) => 
   Finite n -> VU.Vector Word
-intoWords = VU.unfoldr go . fromIntegral @_ @Natural
-  where go 0 = Nothing
-        go n = let (d, r) = quotRem n bitsPerWord in
-                Just (fromIntegral r, d)
+intoWords = evalState (VU.replicateM (wordLength @(Finite n)) go) . fromIntegral @_ @Natural
+  where go = do remaining <- get
+                let (d, r) = quotRem remaining bitsPerWord
+                put d >> pure (fromIntegral r)
 
 outOfWords :: forall (n :: Nat) . 
   (KnownNat n) => 

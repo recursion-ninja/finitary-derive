@@ -14,7 +14,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Data.Finitary.PackBits 
+module Data.Finitary.PackBits.Unsafe 
 (
   PackBits, pattern Packed
 ) where
