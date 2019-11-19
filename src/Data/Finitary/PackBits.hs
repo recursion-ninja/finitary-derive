@@ -1,3 +1,20 @@
+{-
+ - Copyright (C) 2019  Koz Ross <koz.ross@retro-freedom.nz>
+ -
+ - This program is free software: you can redistribute it and/or modify
+ - it under the terms of the GNU General Public License as published by
+ - the Free Software Foundation, either version 3 of the License, or
+ - (at your option) any later version.
+ -
+ - This program is distributed in the hope that it will be useful,
+ - but WITHOUT ANY WARRANTY; without even the implied warranty of
+ - MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ - GNU General Public License for more details.
+ -
+ - You should have received a copy of the GNU General Public License
+ - along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ -}
+
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Extra.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
@@ -14,6 +31,39 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- |
+-- Module:        Data.Finitary.PackBits
+-- Description:   Scheme for bit-packing @Finitary@ types.
+-- Copyright:     (C) Koz Ross 2019
+-- License:       GPL version 3.0 or later
+-- Maintainer:    koz.ross@retro-freedom.nz
+-- Stability:     Experimental
+-- Portability:   GHC only
+--
+-- From the [Kraft-McMillan
+-- inequality](https://en.wikipedia.org/wiki/Kraft%E2%80%93McMillan_inequality),
+-- the fact that we are not able to have \'fractional\' bits, we can derive a
+-- fixed-length code into a bitstring for any 'Finitary' type @a@, with code
+-- length \(\lceil \log_{2}(\texttt{Cardinality a}) \rceil\) bits. This code is
+-- essentially a binary representation of the index of each inhabitant of @a@.
+-- On that basis, we can derive an 'Unbox' instance, representing
+-- the entire 'VU.Vector' as an unboxed [bit
+-- array](https://en.wikipedia.org/wiki/Bit_array).
+--
+-- This encoding is advantageous from the point of view of space - there is no
+-- tighter possible packing that preserves \(\Theta(1)\) random access and also
+-- allows the full range of 'VU.Vector' operations. If you are concerned about
+-- space usage above all, this is the best choice for you. 
+--
+-- Because access to individual bits is slower than whole bytes or words, this
+-- encoding adds some overhead. Additionally, a primary advantage of bit arrays
+-- (the ability to perform \'bulk\' operations on bits efficiently) is not made
+-- use of here. Therefore, if speed matters more than compactness, this encoding
+-- is suboptimal.
+--
+-- This encoding is __thread-safe__, and thus slightly slower. If you are certain 
+-- that race conditions cannot occur for your code, you can gain a speed improvement 
+-- by using "Data.Finitary.PackBits.Unsafe" instead.
 module Data.Finitary.PackBits 
 (
   PackBits, pattern Packed
@@ -37,11 +87,28 @@ import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Unboxed as VU
 
+-- | An opaque wrapper around @a@, representing each value as a 'bit-packed'
+-- encoding.
 newtype PackBits (a :: Type) = PackBits (VU.Vector BT.Bit)
   deriving (Eq, Ord)
 
 type role PackBits nominal
 
+-- | To provide (something that resembles a) data constructor for 'PackBits', we
+-- provide the following pattern. It can be used like any other data
+-- constructor:
+--
+-- > import Data.Finitary.PackBits
+-- >
+-- > anInt :: PackBits Int
+-- > anInt = Packed 10
+-- >
+-- > isPackedEven :: PackBits Int -> Bool
+-- > isPackedEven (Packed x) = even x
+--
+-- __Every__ pattern match, and data constructor call, performs a
+-- \(\Theta(\texttt{Cardinality a})\) encoding or decoding of @a@. Use with this
+-- in mind.
 pattern Packed :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
   PackBits a -> a
