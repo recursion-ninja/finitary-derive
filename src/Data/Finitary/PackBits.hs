@@ -46,7 +46,7 @@
 -- fixed-length code into a bitstring for any 'Finitary' type @a@, with code
 -- length \(\lceil \log_{2}(\texttt{Cardinality a}) \rceil\) bits. This code is
 -- essentially a binary representation of the index of each inhabitant of @a@.
--- On that basis, we can derive an 'Unbox' instance, representing
+-- On that basis, we can derive an 'VU.Unbox' instance, representing
 -- the entire 'VU.Vector' as an unboxed [bit
 -- array](https://en.wikipedia.org/wiki/Bit_array).
 --

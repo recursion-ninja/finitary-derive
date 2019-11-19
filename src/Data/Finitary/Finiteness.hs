@@ -91,7 +91,7 @@ import Control.DeepSeq (NFData(..))
 import Data.Hashable (Hashable(..))
 import Data.Binary (Binary(..))
 
--- | Essentially 'Identity' with a different name. Named this way due to the
+-- | Essentially 'Data.Functor.Identity' with a different name. Named this way due to the
 -- wordplay you get from use with @DerivingVia@.
 newtype Finiteness a = Finiteness { unFiniteness :: a }
   deriving (Eq, Show, Read, Typeable, Data, Functor, Semigroup, Monoid)
