@@ -63,10 +63,10 @@ instance (Finitary a) => Finitary (PackBytes a) where
 instance (Finitary a, 1 <= Cardinality a) => Storable (PackBytes a) where
   sizeOf _ = byteLength @a
   alignment _ = alignment (undefined :: Word8)
-  peek ptr = do let wordPtr = castPtr ptr
-                PackBytes <$> VU.generateM (byteLength @a) (peek . plusPtr wordPtr)
-  poke ptr (PackBytes v) = do let wordPtr = castPtr ptr
-                              VU.foldM'_ go wordPtr v
+  peek ptr = do let bytePtr = castPtr ptr
+                PackBytes <$> VU.generateM (byteLength @a) (peek . plusPtr bytePtr)
+  poke ptr (PackBytes v) = do let bytePtr = castPtr ptr
+                              VU.foldM'_ go bytePtr v
     where go p e = poke p e >> pure (plusPtr p 1)
 
 newtype instance VU.MVector s (PackBytes a) = MV_PackBytes (VU.MVector s Word8)
