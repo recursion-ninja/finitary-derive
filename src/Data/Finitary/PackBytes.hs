@@ -28,6 +28,8 @@ import Data.Vector.Instances ()
 import Data.Hashable (Hashable(..))
 import Control.DeepSeq (NFData(..))
 import Data.Finitary (Finitary(..))
+import Foreign.Storable (Storable(..))
+import Foreign.Ptr (castPtr, plusPtr)
 import Numeric.Natural (Natural)
 import Data.Finite (Finite)
 import Control.Monad.Trans.State.Strict (evalState, get, modify)
@@ -57,6 +59,15 @@ instance (Finitary a) => Finitary (PackBytes a) where
   type Cardinality (PackBytes a) = Cardinality a
   fromFinite = PackBytes . intoBytes
   toFinite = outOfBytes . op PackBytes
+
+instance (Finitary a, 1 <= Cardinality a) => Storable (PackBytes a) where
+  sizeOf _ = byteLength @a
+  alignment _ = alignment (undefined :: Word8)
+  peek ptr = do let wordPtr = castPtr ptr
+                PackBytes <$> VU.generateM (byteLength @a) (peek . plusPtr wordPtr)
+  poke ptr (PackBytes v) = do let wordPtr = castPtr ptr
+                              VU.foldM'_ go wordPtr v
+    where go p e = poke p e >> pure (plusPtr p 1)
 
 newtype instance VU.MVector s (PackBytes a) = MV_PackBytes (VU.MVector s Word8)
 
