@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Extra.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RoleAnnotations #-}
@@ -16,6 +19,7 @@ module Data.Finitary.PackBits
   PackBits, pattern Packed
 ) where
 
+import GHC.TypeLits.Extra
 import Data.Proxy (Proxy(..))
 import Numeric.Natural (Natural)
 import GHC.TypeNats
@@ -37,16 +41,6 @@ newtype PackBits (a :: Type) = PackBits (VU.Vector BT.Bit)
   deriving (Eq, Ord)
 
 type role PackBits nominal
-
-packBits :: forall (a :: Type) . 
-  (Finitary a) => 
-  a -> PackBits a
-packBits = fromFinite . toFinite
-
-unpackBits :: forall (a :: Type) . 
-  (Finitary a) => 
-  PackBits a -> a
-unpackBits = fromFinite . toFinite
 
 pattern Packed :: forall (a :: Type) . 
   (Finitary a) => 
@@ -71,7 +65,7 @@ instance (Finitary a, 1 <= Cardinality a) => Bounded (PackBits a) where
 
 newtype instance VU.MVector s (PackBits a) = MV_PackBits (VU.MVector s BT.Bit)
 
-instance (Finitary a) => VGM.MVector VU.MVector (PackBits a) where
+instance (Finitary a, 1 <= Cardinality a) => VGM.MVector VU.MVector (PackBits a) where
   basicLength = over MV_PackBits ((`div` bitLength @a) . VGM.basicLength)
   basicOverlaps = over2 MV_PackBits VGM.basicOverlaps
   basicUnsafeSlice i len = over MV_PackBits (VGM.basicUnsafeSlice (i * bitLength @a) (len * bitLength @a))
@@ -83,21 +77,33 @@ instance (Finitary a) => VGM.MVector VU.MVector (PackBits a) where
 
 newtype instance VU.Vector (PackBits a) = V_PackBits (VU.Vector BT.Bit)
 
-instance (Finitary a) => VG.Vector VU.Vector (PackBits a) where
+instance (Finitary a, 1 <= Cardinality a) => VG.Vector VU.Vector (PackBits a) where
   basicLength = over V_PackBits ((`div` bitLength @a) . VG.basicLength)
   basicUnsafeFreeze = fmap V_PackBits . VG.basicUnsafeFreeze . op MV_PackBits
   basicUnsafeThaw = fmap MV_PackBits . VG.basicUnsafeThaw . op V_PackBits
   basicUnsafeSlice i len = over V_PackBits (VG.basicUnsafeSlice (i * bitLength @a) (len * bitLength @a))
   basicUnsafeIndexM (V_PackBits v) i = pure . PackBits . VG.unsafeSlice (i * bitLength @a) (bitLength @a) $ v
 
-instance (Finitary a) => VU.Unbox (PackBits a)
+instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (PackBits a)
 
 -- Helpers
 
+type BitLength a = CLog 2 (Cardinality a)
+
+packBits :: forall (a :: Type) . 
+  (Finitary a) => 
+  a -> PackBits a
+packBits = fromFinite . toFinite
+
+unpackBits :: forall (a :: Type) . 
+  (Finitary a) => 
+  PackBits a -> a
+unpackBits = fromFinite . toFinite
+
 bitLength :: forall (a :: Type) (b :: Type) . 
-  (Finitary a, Num b) => 
+  (Finitary a, 1 <= Cardinality a, Num b) => 
   b
-bitLength = fromIntegral . natVal $ (Proxy :: Proxy (Cardinality a))
+bitLength = fromIntegral . natVal $ (Proxy :: Proxy (BitLength a))
 
 intoBits :: forall (n :: Nat) .
   (KnownNat n) =>  
