@@ -4,11 +4,13 @@ name:                  finitary-derive
 --                     | | +----- non-breaking API additions
 --                     | | | +--- code changes with no API change
 version:               2.0.0.0
-synopsis:              Easy and efficient Unbox, Storable, Binary and Hashable 
-                       instances for Finitary types.
-description:           Provides a wrapper with pre-made instances of Unbox,
-                       Storable, Binary and Hashable, suitable for use with types that
-                       have Finitary instances. Never write Unbox by hand again!
+synopsis:              Flexible and easy deriving of type classes for finitary
+                       types.
+description:           Provides a collection of wrappers, allowing you to easily
+                       define (among others) Unbox, Storable, Hashable and
+                       Binary instances for finitary types with flexibility in
+                       terms of representation and efficiency. Never write an
+                       Unbox instance by hand again!
 homepage:              https://notabug.org/koz.ross/finitary-derive
 license:               GPL-3.0-or-later
 license-file:          LICENSE.md

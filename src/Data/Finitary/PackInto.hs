@@ -1,3 +1,20 @@
+{-
+ - Copyright (C) 2019  Koz Ross <koz.ross@retro-freedom.nz>
+ -
+ - This program is free software: you can redistribute it and/or modify
+ - it under the terms of the GNU General Public License as published by
+ - the Free Software Foundation, either version 3 of the License, or
+ - (at your option) any later version.
+ -
+ - This program is distributed in the hope that it will be useful,
+ - but WITHOUT ANY WARRANTY; without even the implied warranty of
+ - MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ - GNU General Public License for more details.
+ -
+ - You should have received a copy of the GNU General Public License
+ - along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ -}
+
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -7,6 +24,42 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE PatternSynonyms #-}
 
+-- |
+-- Module:        Data.Finitary.PackInto
+-- Description:   Scheme for packing @Finitary@ types into other @Finitary
+--                types.
+-- Copyright:     (C) Koz Ross 2019
+-- License:       GPL version 3.0 or later
+-- Maintainer:    koz.ross@retro-freedom.nz
+-- Stability:     Experimental
+-- Portability:   GHC only
+--
+-- This allows us to \'borrow\' implementations of certain type classes from
+-- \'larger\' finitary types for \'smaller\' finitary types. Essentially, for
+-- any types @a@ and @b@, if both @a@ and @b@ are 'Finitary' and @Cardinality a
+-- <= Cardinality b@, the set of indexes for @a@ is a subset (strictly speaking,
+-- a prefix) of the set of indexes for @b@. Therefore, we have an injective
+-- mapping from @a@ to @b@, whose
+-- [preimage](https://en.wikipedia.org/wiki/Preimage)
+-- is also injective, witnessed by the function @fromFinite . toFinite@ in both
+-- directions. When combined with the monotonicity of @toFinite@ and
+-- @fromFinite@, we can operate on inhabitants of @b@ in certain ways while
+-- always being able to recover the \'equivalent\' inhabitant of @a@.
+--
+-- On this basis, we can \'borrow\' both 'VU.Unbox' and 'Storable' instances
+-- from @b@. This is done by way of the @PackInto a b@ type; here, @a@ is the
+-- type to which instances are being \'lent\' and @b@ is the type from which
+-- instances are being \'borrowed\'. @PackInto a b@ does not store any values of
+-- type @a@ - construction and deconstruction of @PackInto@ performs a
+-- conversion as described above.
+--
+-- If an existing 'Finitary' type exists with desired instances, this encoding
+-- is the most flexible and efficient. Unless you have good reasons to consider
+-- something else (such as space use), use this encoding. However, its
+-- usefulness is conditional on a suitable \'packing\' type existing of
+-- appropriate cardinality. Additionally, if @Cardinality a < Cardinality b@,
+-- any @PackInto a b@ will waste some space, with larger cardinality differences
+-- creating proportionately more waste.
 module Data.Finitary.PackInto 
 (
   PackInto, pattern Packed
@@ -28,11 +81,28 @@ import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 
+-- | An opaque wrapper, representing values of type @a@ as \'corresponding\'
+-- values of type @b@.
 newtype PackInto (a :: Type) (b :: Type) = PackInto b
   deriving (Eq, Ord)
 
 type role PackInto nominal nominal
 
+-- | To provide (something that resembles a) data constructor for 'PackInto', we
+-- provide the following pattern. It can be used like any other data
+-- constructor:
+--
+-- > import Data.Finitary.PackInt
+-- >
+-- > anInt :: PackInto Int Word
+-- > anInt = Packed 10
+-- >
+-- > isPackedEven :: PackInto Int Word -> Bool
+-- > isPackedEven (Packed x) = even x
+--
+-- __Every__ pattern match, and data constructor call, performs a re-encoding by
+-- way of @fromFinite . toFinite@ on @b@ and @a@ respectively. Use with this in
+-- mind.
 pattern Packed :: forall (b :: Type) (a :: Type) . 
   (Finitary a, Finitary b, Cardinality a <= Cardinality b) =>
   PackInto a b -> a
