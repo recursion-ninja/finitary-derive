@@ -49,39 +49,57 @@ pattern Packed x <- (packBits -> x)
   where Packed x = unpackBits x
 
 instance Hashable (PackBits a) where
+  {-# INLINE hashWithSalt #-}
   hashWithSalt salt = hashWithSalt salt . BT.cloneToWords . op PackBits
 
 instance NFData (PackBits a) where
+  {-# INLINE rnf #-}
   rnf = rnf . op PackBits
 
 instance (Finitary a) => Finitary (PackBits a) where
   type Cardinality (PackBits a) = Cardinality a
+  {-# INLINE fromFinite #-}
   fromFinite = PackBits . intoBits
+  {-# INLINE toFinite #-}
   toFinite = outOfBits . op PackBits
 
 instance (Finitary a, 1 <= Cardinality a) => Bounded (PackBits a) where
+  {-# INLINE minBound #-}
   minBound = start
+  {-# INLINE maxBound #-}
   maxBound = end
 
 newtype instance VU.MVector s (PackBits a) = MV_PackBits (VU.MVector s BT.Bit)
 
 instance (Finitary a, 1 <= Cardinality a) => VGM.MVector VU.MVector (PackBits a) where
+  {-# INLINE basicLength #-}
   basicLength = over MV_PackBits ((`div` bitLength @a) . VGM.basicLength)
+  {-# INLINE basicOverlaps #-}
   basicOverlaps = over2 MV_PackBits VGM.basicOverlaps
+  {-# INLINE basicUnsafeSlice #-}
   basicUnsafeSlice i len = over MV_PackBits (VGM.basicUnsafeSlice (i * bitLength @a) (len * bitLength @a))
+  {-# INLINE basicUnsafeNew #-}
   basicUnsafeNew len = fmap MV_PackBits (VGM.basicUnsafeNew (len * bitLength @a))
+  {-# INLINE basicInitialize #-}
   basicInitialize = VGM.basicInitialize . op MV_PackBits
+  {-# INLINE basicUnsafeRead #-}
   basicUnsafeRead (MV_PackBits v) i = fmap PackBits . VG.freeze . VGM.unsafeSlice (i * bitLength @a) (bitLength @a) $ v
+  {-# INLINE basicUnsafeWrite #-}
   basicUnsafeWrite (MV_PackBits v) i (PackBits x) = let slice = VGM.unsafeSlice (i * bitLength @a) (bitLength @a) v in
                                                       VG.unsafeCopy slice x
 
 newtype instance VU.Vector (PackBits a) = V_PackBits (VU.Vector BT.Bit)
 
 instance (Finitary a, 1 <= Cardinality a) => VG.Vector VU.Vector (PackBits a) where
+  {-# INLINE basicLength #-}
   basicLength = over V_PackBits ((`div` bitLength @a) . VG.basicLength)
+  {-# INLINE basicUnsafeFreeze #-}
   basicUnsafeFreeze = fmap V_PackBits . VG.basicUnsafeFreeze . op MV_PackBits
+  {-# INLINE basicUnsafeThaw #-}
   basicUnsafeThaw = fmap MV_PackBits . VG.basicUnsafeThaw . op V_PackBits
+  {-# INLINE basicUnsafeSlice #-}
   basicUnsafeSlice i len = over V_PackBits (VG.basicUnsafeSlice (i * bitLength @a) (len * bitLength @a))
+  {-# INLINE basicUnsafeIndexM #-}
   basicUnsafeIndexM (V_PackBits v) i = pure . PackBits . VG.unsafeSlice (i * bitLength @a) (bitLength @a) $ v
 
 instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (PackBits a)
@@ -90,21 +108,25 @@ instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (PackBits a)
 
 type BitLength a = CLog 2 (Cardinality a)
 
+{-# INLINE packBits #-}
 packBits :: forall (a :: Type) . 
   (Finitary a) => 
   a -> PackBits a
 packBits = fromFinite . toFinite
 
+{-# INLINE unpackBits #-}
 unpackBits :: forall (a :: Type) . 
   (Finitary a) => 
   PackBits a -> a
 unpackBits = fromFinite . toFinite
 
+{-# INLINE bitLength #-}
 bitLength :: forall (a :: Type) (b :: Type) . 
   (Finitary a, 1 <= Cardinality a, Num b) => 
   b
 bitLength = fromIntegral . natVal $ (Proxy :: Proxy (BitLength a))
 
+{-# INLINE intoBits #-}
 intoBits :: forall (n :: Nat) .
   (KnownNat n) =>  
   Finite n -> VU.Vector BT.Bit
@@ -113,6 +135,7 @@ intoBits = VU.unfoldr go . fromIntegral @_ @Natural
         go n = let (d, r) = quotRem n 2 in
                  Just (BT.Bit . toEnum . fromIntegral $ r, d)
 
+{-# INLINE outOfBits #-}
 outOfBits :: forall (n :: Nat) .
   (KnownNat n) =>  
   VU.Vector BT.Bit -> Finite n

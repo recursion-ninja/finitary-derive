@@ -64,7 +64,9 @@ instance (Finitary a) => Binary (Finiteness a) where
   {-# INLINE get #-}
   get = Finiteness . fromFinite . fromIntegral @Integer <$> get
 
-instance (Finitary a) => Ix (Finiteness a) where
+-- To ensure this instance's proper behaviour, the cardinality of a must be no
+-- greater than that of Int on the platform
+instance (Finitary a, Cardinality a <= Cardinality Int) => Ix (Finiteness a) where
   {-# INLINE range #-}
   range (lo, hi) = inhabitantsFromTo lo hi
   {-# INLINE index #-}
