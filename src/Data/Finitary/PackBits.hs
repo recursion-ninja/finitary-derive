@@ -30,7 +30,7 @@ import Data.Vector.Instances ()
 import Control.DeepSeq (NFData(..))
 import Data.Finitary(Finitary(..))
 import Data.Finite (Finite)
-import Control.Monad.Trans.State.Strict (evalState, get, modify)
+import Control.Monad.Trans.State.Strict (evalState, get, modify, put)
 
 import qualified Data.Bit.ThreadSafe as BT
 import qualified Data.Vector.Generic as VG
@@ -43,7 +43,7 @@ newtype PackBits (a :: Type) = PackBits (VU.Vector BT.Bit)
 type role PackBits nominal
 
 pattern Packed :: forall (a :: Type) . 
-  (Finitary a) => 
+  (Finitary a, 1 <= Cardinality a) => 
   PackBits a -> a
 pattern Packed x <- (packBits -> x)
   where Packed x = unpackBits x
@@ -56,7 +56,7 @@ instance NFData (PackBits a) where
   {-# INLINE rnf #-}
   rnf = rnf . op PackBits
 
-instance (Finitary a) => Finitary (PackBits a) where
+instance (Finitary a, 1 <= Cardinality a) => Finitary (PackBits a) where
   type Cardinality (PackBits a) = Cardinality a
   {-# INLINE fromFinite #-}
   fromFinite = PackBits . intoBits
@@ -110,13 +110,13 @@ type BitLength a = CLog 2 (Cardinality a)
 
 {-# INLINE packBits #-}
 packBits :: forall (a :: Type) . 
-  (Finitary a) => 
+  (Finitary a, 1 <= Cardinality a) => 
   a -> PackBits a
 packBits = fromFinite . toFinite
 
 {-# INLINE unpackBits #-}
 unpackBits :: forall (a :: Type) . 
-  (Finitary a) => 
+  (Finitary a, 1 <= Cardinality a) => 
   PackBits a -> a
 unpackBits = fromFinite . toFinite
 
@@ -128,13 +128,13 @@ bitLength = fromIntegral . natVal $ (Proxy :: Proxy (BitLength a))
 
 {-# INLINE intoBits #-}
 intoBits :: forall (n :: Nat) .
-  (KnownNat n) =>  
+  (KnownNat n, 1 <= n) =>  
   Finite n -> VU.Vector BT.Bit
-intoBits = VU.unfoldr go . fromIntegral @_ @Natural
-  where go 0 = Nothing
-        go n = let (d, r) = quotRem n 2 in
-                 Just (BT.Bit . toEnum . fromIntegral $ r, d)
-
+intoBits = evalState (VU.replicateM (bitLength @(Finite n)) go) . fromIntegral @_ @Natural
+  where go = do remaining <- get
+                let (d, r) = quotRem remaining 2
+                put d >> pure (BT.Bit . toEnum . fromIntegral $ r)
+                
 {-# INLINE outOfBits #-}
 outOfBits :: forall (n :: Nat) .
   (KnownNat n) =>  

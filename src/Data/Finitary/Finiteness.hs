@@ -20,7 +20,6 @@ import Data.Ord (comparing)
 import Control.DeepSeq (NFData(..))
 import Data.Hashable (Hashable(..))
 import Data.Binary (Binary(..))
-import Data.Ix (Ix(..))
 
 newtype Finiteness a = Finiteness { unFiniteness :: a }
   deriving (Eq, Show, Read, Typeable, Data, Functor, Semigroup, Monoid)
@@ -63,13 +62,3 @@ instance (Finitary a) => Binary (Finiteness a) where
   put = put . fromIntegral @_ @Integer . toFinite . unFiniteness
   {-# INLINE get #-}
   get = Finiteness . fromFinite . fromIntegral @Integer <$> get
-
--- To ensure this instance's proper behaviour, the cardinality of a must be no
--- greater than that of Int on the platform
-instance (Finitary a, Cardinality a <= Cardinality Int) => Ix (Finiteness a) where
-  {-# INLINE range #-}
-  range (lo, hi) = inhabitantsFromTo lo hi
-  {-# INLINE index #-}
-  index (lo, _) = fromIntegral . (\i -> i - toFinite lo) . toFinite
-  {-# INLINE inRange #-}
-  inRange (lo, hi) x = lo <= x && x <= hi
