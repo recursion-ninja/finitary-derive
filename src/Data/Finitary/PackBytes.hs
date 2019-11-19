@@ -21,7 +21,7 @@ module Data.Finitary.PackBytes
 import Data.Proxy (Proxy(..))
 import GHC.TypeLits.Extra
 import GHC.TypeNats
-import CoercibleUtils (op, over)
+import CoercibleUtils (op, over, over2)
 import Data.Kind (Type)
 import Data.Word (Word8)
 import Data.Vector.Instances ()
@@ -33,6 +33,7 @@ import Data.Finite (Finite)
 import Control.Monad.Trans.State.Strict (evalState, get, modify)
 
 import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 
 newtype PackBytes (a :: Type) = PackBytes (VU.Vector Word8)
@@ -59,8 +60,26 @@ instance (Finitary a) => Finitary (PackBytes a) where
 
 newtype instance VU.MVector s (PackBytes a) = MV_PackBytes (VU.MVector s Word8)
 
-instance (Finitary a) => VGM.MVector VU.MVector (PackBytes a) where
+instance (Finitary a, 1 <= Cardinality a) => VGM.MVector VU.MVector (PackBytes a) where
   basicLength = over MV_PackBytes ((`div` byteLength @a) . VGM.basicLength)
+  basicOverlaps = over2 MV_PackBytes VGM.basicOverlaps
+  basicUnsafeSlice i len = over MV_PackBytes (VGM.basicUnsafeSlice (i * byteLength @a) (len * byteLength @a))
+  basicUnsafeNew len = MV_PackBytes <$> VGM.basicUnsafeNew (len * byteLength @a)
+  basicInitialize = VGM.basicInitialize . op MV_PackBytes
+  basicUnsafeRead (MV_PackBytes v) i = fmap PackBytes . VG.freeze . VGM.unsafeSlice (i * byteLength @a) (byteLength @a) $ v
+  basicUnsafeWrite (MV_PackBytes v) i (PackBytes x) = let slice = VGM.unsafeSlice (i * byteLength @a) (byteLength @a) v in
+                                                        VG.unsafeCopy slice x
+
+newtype instance VU.Vector (PackBytes a) = V_PackBytes (VU.Vector Word8)
+
+instance (Finitary a, 1 <= Cardinality a) => VG.Vector VU.Vector (PackBytes a) where
+  basicLength = over V_PackBytes ((`div` byteLength @a) . VG.basicLength)
+  basicUnsafeFreeze = fmap V_PackBytes . VG.basicUnsafeFreeze . op MV_PackBytes
+  basicUnsafeThaw = fmap MV_PackBytes . VG.basicUnsafeThaw . op V_PackBytes
+  basicUnsafeSlice i len = over V_PackBytes (VG.basicUnsafeSlice (i * byteLength @a) (len * byteLength @a))
+  basicUnsafeIndexM (V_PackBytes v) i = pure . PackBytes . VG.unsafeSlice (i * byteLength @a) (byteLength @a) $ v
+
+instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (PackBytes a)
 
 -- Helpers
 
