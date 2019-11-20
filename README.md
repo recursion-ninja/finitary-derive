@@ -64,14 +64,27 @@ from, so that you can choose the one that best suits you.
 
 ## So... what's the difference exactly?
 
-``PackBits`` represents indexes as strings of bits - most compact, but least
-efficient speed-wise. ``PackBytes`` represents indexes as byte strings - faster,
-but less compact, especially if your type isn't big. ``PackWords`` represents
-indexes as fixed-length arrays of ``Word``s - fastest, but not space-efficient
-unless your type is really large (like, several multiples of @Word@ large).
+``PackBits`` represents indexes as strings of bits. This is the most compact
+representation possible (honestly, [maths says so][6]), but the least efficient, 
+as accessing individual bits is slower on most architectures than whole bytes or words.
+Unless you've got large ``Vector``s, you probably don't need this encoding, but
+if space is at an absolute premium, this is the best choice. 
+
+``PackBytes`` instead represents indexes as byte strings. This is a more
+efficient choice than a string of bits, but can still be slow for architectures
+which prefer whole-word access. It's also fairly compact, especially if your
+architecture has big @Word@s.
+
+``PackWords`` represents indexes as fixed-length arrays of ``Word``s. This is
+the most efficient encoding from the point of view of random reads and writes,
+but will likely waste a lot of space, unless your type is _extremely_ large (as
+in, multiple copies of ``Word`` large).  
+
 Lastly, ``PackInto`` lets you choose another finitary type whose instances you
-want to 'borrow' - most flexibility, but requires you to choose an appropriate
-type with a cardinality no smaller than yours.
+want to 'borrow', and will use that type as a representation. This is the most
+flexible, and should be preferred whenever possible. However, it requires that a
+type of appropriate cardinality (at least as big as the one you want to encode)
+exists, and has the appropriate instances. 
 
 ## Why can't I ``DerivingVia`` through these ``Pack`` types?
 
@@ -97,7 +110,7 @@ Because it's not clear what they should be. Let's suppose you want to bit-pack a
 type ``Giraffe`` with cardinality 11 - what should ``sizeOf`` for @PackBits
 Giraffe@ be? How about ``alignment``? The only obvious solution is padding, but
 in this case, you might as well use ``PackBytes``, ``PackWords`` or
-``PackInto``, since then you'll at least know what you're getting, and would be
+``PackInto``, since then you'll at least know what you're getting, and are
 explicit about it.
 
 ## Sounds good! Can I use it?
@@ -121,3 +134,4 @@ code ``GPL-3.0-or-later``). For more details, see the ``LICENSE.md`` file.
 [3]: https://gitlab.haskell.org/ghc/ghc/wikis/roles
 [4]: http://hackage.haskell.org/package/vector-0.12.0.3/docs/src/Data.Vector.Unboxed.Base.html
 [5]: https://wiki.haskell.org/GHC/Type_families
+[6]: https://en.wikipedia.org/wiki/Kraft%E2%80%93McMillan_inequality
