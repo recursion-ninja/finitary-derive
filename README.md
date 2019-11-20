@@ -101,13 +101,13 @@ deconstructed. Ultimately, we went with the second option, as it makes the
 occurences of encodes and decodes explicit to the user. Had we gone with the
 first choice, it would be unclear where encodes and decodes occur, especially
 when using functions built from type class methods. We believe this clarity is
-worth the inability to use @DerivingVia@ to define ``Storable`` instances.
+worth the inability to use ``DerivingVia`` to define ``Storable`` instances.
 
 ## Why do ``PackBytes``, ``PackWords`` and ``PackInto`` have ``Storable`` instances, but not ``PackBits``?
 
 Because it's not clear what they should be. Let's suppose you want to bit-pack a
-type ``Giraffe`` with cardinality 11 - what should ``sizeOf`` for @PackBits
-Giraffe@ be? How about ``alignment``? The only obvious solution is padding, but
+type ``Giraffe`` with cardinality 11 - what should ``sizeOf`` for ``PackBits
+Giraffe`` be? How about ``alignment``? The only obvious solution is padding, but
 in this case, you might as well use ``PackBytes``, ``PackWords`` or
 ``PackInto``, since then you'll at least know what you're getting, and are
 explicit about it.
