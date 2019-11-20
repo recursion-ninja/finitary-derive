@@ -40,8 +40,7 @@ If you don't have access to ``DerivingVia``, you can still get the benefits of
 this library -- just use ``Finitary a`` instead of ``a``. As it is a ``newtype``, 
 you can ``coerce`` through it if you care about efficiency.
 
-## What's the deal with ``Unbox`` and ``Storable`` exactly? What's with all the
-``Pack`` types?
+## What's the deal with ``Unbox`` and ``Storable`` exactly? What's with all the ``Pack`` types?
 
 Essentially, being ``Finitary`` means that there's a finite set of indexes, one
 for each inhabitant. That means we can essentially represent any inhabitant as a
