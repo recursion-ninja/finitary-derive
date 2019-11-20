@@ -73,7 +73,7 @@ if space is at an absolute premium, this is the best choice.
 ``PackBytes`` instead represents indexes as byte strings. This is a more
 efficient choice than a string of bits, but can still be slow for architectures
 which prefer whole-word access. It's also fairly compact, especially if your
-architecture has big @Word@s.
+architecture has big ``Word``s.
 
 ``PackWords`` represents indexes as fixed-length arrays of ``Word``s. This is
 the most efficient encoding from the point of view of random reads and writes,
@@ -103,8 +103,7 @@ first choice, it would be unclear where encodes and decodes occur, especially
 when using functions built from type class methods. We believe this clarity is
 worth the inability to use @DerivingVia@ to define ``Storable`` instances.
 
-## Why do ``PackBytes``, ``PackWords`` and ``PackInto`` have ``Storable``
-instances, but not ``PackBits``?
+## Why do ``PackBytes``, ``PackWords`` and ``PackInto`` have ``Storable`` instances, but not ``PackBits``?
 
 Because it's not clear what they should be. Let's suppose you want to bit-pack a
 type ``Giraffe`` with cardinality 11 - what should ``sizeOf`` for @PackBits
