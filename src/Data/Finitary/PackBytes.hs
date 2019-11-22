@@ -84,7 +84,7 @@ import qualified Data.Vector.Generic.Mutable as VGM
 
 -- | An opaque wrapper around @a@, representing each value as a byte string.
 newtype PackBytes (a :: Type) = PackBytes (VU.Vector Word8)
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 type role PackBytes nominal
 

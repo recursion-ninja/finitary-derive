@@ -57,7 +57,7 @@
 -- > 
 -- > data Foo = Bar | Baz (Word8, Word8) | Quux Word16
 -- >  deriving (Eq, Generic, Finitary)
--- >  deriving (Ord, Bounded, NFData, Hashable, Binary) via Finiteness
+-- >  deriving (Ord, Bounded, NFData, Hashable, Binary) via (Finiteness Foo)
 --
 -- Currently, the following type class instances can be derived in this manner:
 --

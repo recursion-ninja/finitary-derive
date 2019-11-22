@@ -27,7 +27,7 @@ import qualified Data.Vector.Storable as VS
 
 data Foo = Bar | Baz (Word8, Word8) | Quux Word16
   deriving (Eq, Generic, Finitary)
-  deriving (Ord, Bounded, Hashable, NFData, Binary) via Finiteness
+  deriving (Ord, Bounded, Hashable, NFData, Binary) via (Finiteness Foo)
 
 someVector :: VU.Vector (PackInto Foo Word64)
 someVector = VU.fromList . fmap Packed $ [Bar, Baz 0x0 0xf, Quux 0x134]

@@ -83,7 +83,7 @@ import qualified Data.Vector.Generic.Mutable as VGM
 -- | An opaque wrapper around @a@, representing each value as a fixed-length
 -- array of machine words.
 newtype PackWords (a :: Type) = PackWords (VU.Vector Word)
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 type role PackWords nominal
 

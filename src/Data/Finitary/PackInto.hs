@@ -76,6 +76,7 @@ import Foreign.Ptr (castPtr)
 import Data.Finitary (Finitary(..))
 import Data.Finite (weakenN, strengthenN)
 import Data.Maybe (fromJust)
+import Data.Ord (comparing)
 
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
@@ -84,7 +85,7 @@ import qualified Data.Vector.Generic.Mutable as VGM
 -- | An opaque wrapper, representing values of type @a@ as \'corresponding\'
 -- values of type @b@.
 newtype PackInto (a :: Type) (b :: Type) = PackInto b
-  deriving (Eq, Ord)
+  deriving (Eq, Show)
 
 type role PackInto nominal nominal
 
@@ -108,6 +109,9 @@ pattern Packed :: forall (b :: Type) (a :: Type) .
   PackInto a b -> a
 pattern Packed x <- (packInto -> x)
   where Packed x = unpackOutOf x
+
+instance (Finitary a, Finitary b, Cardinality a <= Cardinality b) => Ord (PackInto a b) where
+  compare = comparing toFinite
 
 instance (Hashable b) => Hashable (PackInto a b) where
   hashWithSalt salt = over PackInto (hashWithSalt salt)
