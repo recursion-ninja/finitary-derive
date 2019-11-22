@@ -68,6 +68,7 @@ import GHC.TypeNats
 import CoercibleUtils (op, over, over2)
 import Data.Kind (Type)
 import Data.Word (Word8)
+import Data.Vector.Binary ()
 import Data.Vector.Instances ()
 import Data.Hashable (Hashable(..))
 import Control.DeepSeq (NFData(..))
@@ -78,6 +79,7 @@ import Numeric.Natural (Natural)
 import Data.Finite (Finite)
 import Control.Monad.Trans.State.Strict (evalState, get, modify, put)
 
+import qualified Data.Binary as Bin
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
@@ -109,26 +111,42 @@ pattern Packed :: forall (a :: Type) .
 pattern Packed x <- (packBytes -> x)
   where Packed x = unpackBytes x
 
+instance Bin.Binary (PackBytes a) where
+  {-# INLINE put #-}
+  put = Bin.put . op PackBytes
+  {-# INLINE get #-}
+  get = PackBytes <$> Bin.get
+
 instance Hashable (PackBytes a) where
+  {-# INLINE hashWithSalt #-}
   hashWithSalt salt = hashWithSalt salt . op PackBytes
 
 instance NFData (PackBytes a) where
+  {-# INLINE rnf #-}
   rnf = rnf . op PackBytes
 
 instance (Finitary a, 1 <= Cardinality a) => Finitary (PackBytes a) where
   type Cardinality (PackBytes a) = Cardinality a
+  {-# INLINE fromFinite #-}
   fromFinite = PackBytes . intoBytes
+  {-# INLINE toFinite #-}
   toFinite = outOfBytes . op PackBytes
 
 instance (Finitary a, 1 <= Cardinality a) => Bounded (PackBytes a) where
+  {-# INLINE minBound #-}
   minBound = start
+  {-# INLINE maxBound #-}
   maxBound = end
 
 instance (Finitary a, 1 <= Cardinality a) => Storable (PackBytes a) where
+  {-# INLINE sizeOf #-}
   sizeOf _ = byteLength @a
+  {-# INLINE alignment #-}
   alignment _ = alignment (undefined :: Word8)
+  {-# INLINE peek #-}
   peek ptr = do let bytePtr = castPtr ptr
                 PackBytes <$> VU.generateM (byteLength @a) (peek . plusPtr bytePtr)
+  {-# INLINE poke #-}
   poke ptr (PackBytes v) = do let bytePtr = castPtr ptr
                               VU.foldM'_ go bytePtr v
     where go p e = poke p e >> pure (plusPtr p 1)
@@ -136,22 +154,34 @@ instance (Finitary a, 1 <= Cardinality a) => Storable (PackBytes a) where
 newtype instance VU.MVector s (PackBytes a) = MV_PackBytes (VU.MVector s Word8)
 
 instance (Finitary a, 1 <= Cardinality a) => VGM.MVector VU.MVector (PackBytes a) where
+  {-# INLINE basicLength #-}
   basicLength = over MV_PackBytes ((`div` byteLength @a) . VGM.basicLength)
+  {-# INLINE basicOverlaps #-}
   basicOverlaps = over2 MV_PackBytes VGM.basicOverlaps
+  {-# INLINE basicUnsafeSlice #-}
   basicUnsafeSlice i len = over MV_PackBytes (VGM.basicUnsafeSlice (i * byteLength @a) (len * byteLength @a))
+  {-# INLINE basicUnsafeNew #-}
   basicUnsafeNew len = MV_PackBytes <$> VGM.basicUnsafeNew (len * byteLength @a)
+  {-# INLINE basicInitialize #-}
   basicInitialize = VGM.basicInitialize . op MV_PackBytes
+  {-# INLINE basicUnsafeRead #-}
   basicUnsafeRead (MV_PackBytes v) i = fmap PackBytes . VG.freeze . VGM.unsafeSlice (i * byteLength @a) (byteLength @a) $ v
+  {-# INLINE basicUnsafeWrite #-}
   basicUnsafeWrite (MV_PackBytes v) i (PackBytes x) = let slice = VGM.unsafeSlice (i * byteLength @a) (byteLength @a) v in
                                                         VG.unsafeCopy slice x
 
 newtype instance VU.Vector (PackBytes a) = V_PackBytes (VU.Vector Word8)
 
 instance (Finitary a, 1 <= Cardinality a) => VG.Vector VU.Vector (PackBytes a) where
+  {-# INLINE basicLength #-}
   basicLength = over V_PackBytes ((`div` byteLength @a) . VG.basicLength)
+  {-# INLINE basicUnsafeFreeze #-}
   basicUnsafeFreeze = fmap V_PackBytes . VG.basicUnsafeFreeze . op MV_PackBytes
+  {-# INLINE basicUnsafeThaw #-} 
   basicUnsafeThaw = fmap MV_PackBytes . VG.basicUnsafeThaw . op V_PackBytes
+  {-# INLINE basicUnsafeSlice #-}
   basicUnsafeSlice i len = over V_PackBytes (VG.basicUnsafeSlice (i * byteLength @a) (len * byteLength @a))
+  {-# INLINE basicUnsafeIndexM #-}
   basicUnsafeIndexM (V_PackBytes v) i = pure . PackBytes . VG.unsafeSlice (i * byteLength @a) (byteLength @a) $ v
 
 instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (PackBytes a)
@@ -160,21 +190,25 @@ instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (PackBytes a)
 
 type ByteLength a = CLog (Cardinality Word8) (Cardinality a)
 
+{-# INLINE byteLength #-}
 byteLength :: forall (a :: Type) (b :: Type) . 
   (Finitary a, 1 <= Cardinality a, Num b) =>
   b
 byteLength = fromIntegral . natVal $ (Proxy :: Proxy (ByteLength a)) 
 
+{-# INLINE packBytes #-}
 packBytes :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
   a -> PackBytes a
 packBytes = fromFinite . toFinite
 
+{-# INLINE unpackBytes #-}
 unpackBytes :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
   PackBytes a -> a
 unpackBytes = fromFinite . toFinite
 
+{-# INLINE intoBytes #-}
 intoBytes :: forall (n :: Nat) . 
   (KnownNat n, 1 <= n) => 
   Finite n -> VU.Vector Word8
@@ -183,6 +217,7 @@ intoBytes = evalState (VU.replicateM (byteLength @(Finite n)) go) . fromIntegral
                 let (d, r) = quotRem remaining 256
                 put d >> pure (fromIntegral r)
 
+{-# INLINE outOfBytes #-}
 outOfBytes :: forall (n :: Nat) . 
   (KnownNat n) =>
   VU.Vector Word8 -> Finite n

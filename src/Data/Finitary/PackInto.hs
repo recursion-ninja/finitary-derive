@@ -111,60 +111,85 @@ pattern Packed x <- (packInto -> x)
   where Packed x = unpackOutOf x
 
 instance (Finitary a, Finitary b, Cardinality a <= Cardinality b) => Ord (PackInto a b) where
+  {-# INLINE compare #-}
   compare = comparing toFinite
 
 instance (Hashable b) => Hashable (PackInto a b) where
+  {-# INLINE hashWithSalt #-}
   hashWithSalt salt = over PackInto (hashWithSalt salt)
 
 instance (NFData b) => NFData (PackInto a b) where
+  {-# INLINE rnf #-}
   rnf = over PackInto rnf
 
 instance (Storable b) => Storable (PackInto a b) where
+  {-# INLINE sizeOf #-}
   sizeOf = over PackInto sizeOf
+  {-# INLINE alignment #-}
   alignment = over PackInto alignment
+  {-# INLINE peek #-}
   peek = fmap PackInto . peek . castPtr
+  {-# INLINE poke #-}
   poke ptr = poke (castPtr ptr) . op PackInto
 
 -- We can pack a into b if the cardinality of b is at least as large as a (could
 -- be larger)
 instance (Finitary a, Finitary b, Cardinality a <= Cardinality b) => Finitary (PackInto a b) where
   type Cardinality (PackInto a b) = Cardinality a
+  {-# INLINE fromFinite #-}
   fromFinite = PackInto . fromFinite . weakenN
+  {-# INLINE toFinite #-}
   toFinite = fromJust . strengthenN . toFinite . op PackInto
 
 instance (Finitary a, Finitary b, 1 <= Cardinality a, Cardinality a <= Cardinality b) => Bounded (PackInto a b) where
+  {-# INLINE minBound #-}
   minBound = start
+  {-# INLINE maxBound #-}
   maxBound = end 
 
 newtype instance VU.MVector s (PackInto a b) = MV_PackInto (VU.MVector s b)
 
 instance (VU.Unbox b) => VGM.MVector VU.MVector (PackInto a b) where
+  {-# INLINE basicLength #-}
   basicLength = over MV_PackInto VGM.basicLength
+  {-# INLINE basicOverlaps #-}
   basicOverlaps = over2 MV_PackInto VGM.basicOverlaps
+  {-# INLINE basicUnsafeSlice #-}
   basicUnsafeSlice i len = over MV_PackInto (VGM.basicUnsafeSlice i len)
+  {-# INLINE basicUnsafeNew #-}
   basicUnsafeNew len = MV_PackInto <$> VGM.basicUnsafeNew len
+  {-# INLINE basicInitialize #-}
   basicInitialize = VGM.basicInitialize . op MV_PackInto
+  {-# INLINE basicUnsafeRead #-}
   basicUnsafeRead (MV_PackInto v) i = PackInto <$> VGM.basicUnsafeRead v i
+  {-# INLINE basicUnsafeWrite #-}
   basicUnsafeWrite (MV_PackInto v) i (PackInto x) = VGM.basicUnsafeWrite v i x
 
 newtype instance VU.Vector (PackInto a b) = V_PackInto (VU.Vector b)
 
 instance (VU.Unbox b) => VG.Vector VU.Vector (PackInto a b) where
+  {-# INLINE basicLength #-}
   basicLength = over V_PackInto VG.basicLength
+  {-# INLINE basicUnsafeFreeze #-}
   basicUnsafeFreeze = fmap V_PackInto . VG.basicUnsafeFreeze . op MV_PackInto
+  {-# INLINE basicUnsafeThaw #-}
   basicUnsafeThaw = fmap MV_PackInto . VG.basicUnsafeThaw . op V_PackInto
+  {-# INLINE basicUnsafeSlice #-}
   basicUnsafeSlice i len = over V_PackInto (VG.basicUnsafeSlice i len)
+  {-# INLINE basicUnsafeIndexM #-}
   basicUnsafeIndexM (V_PackInto v) i = PackInto <$> VG.basicUnsafeIndexM v i
 
 instance (VU.Unbox b) => VU.Unbox (PackInto a b)
 
 -- Helpers
 
+{-# INLINE packInto #-}
 packInto :: forall (b :: Type) (a :: Type) .
   (Finitary a, Finitary b, Cardinality a <= Cardinality b) =>  
   a -> PackInto a b
 packInto = fromFinite . toFinite
 
+{-# INLINE unpackOutOf #-}
 unpackOutOf :: forall (b :: Type) (a :: Type) . 
   (Finitary a, Finitary b, Cardinality a <= Cardinality b) => 
   PackInto a b -> a

@@ -33,16 +33,37 @@
 
 -- |
 -- Module:        Data.Finitary.PackBits.Unsafe
--- Description:   Scheme for bit-packing @Finitary@ types, without thread-safety
---                guarantees.
+-- Description:   Scheme for bit-packing @Finitary@ types.
 -- Copyright:     (C) Koz Ross 2019
 -- License:       GPL version 3.0 or later
 -- Maintainer:    koz.ross@retro-freedom.nz
 -- Stability:     Experimental
 -- Portability:   GHC only
 --
--- This module provides an identical API to "Data.Finitary.PackBits", but is
--- __not__ thread-safe in exchange for speed. Use with care.
+-- From the [Kraft-McMillan
+-- inequality](https://en.wikipedia.org/wiki/Kraft%E2%80%93McMillan_inequality),
+-- the fact that we are not able to have \'fractional\' bits, we can derive a
+-- fixed-length code into a bitstring for any 'Finitary' type @a@, with code
+-- length \(\lceil \log_{2}(\texttt{Cardinality a}) \rceil\) bits. This code is
+-- essentially a binary representation of the index of each inhabitant of @a@.
+-- On that basis, we can derive an 'VU.Unbox' instance, representing
+-- the entire 'VU.Vector' as an unboxed [bit
+-- array](https://en.wikipedia.org/wiki/Bit_array).
+--
+-- This encoding is advantageous from the point of view of space - there is no
+-- tighter possible packing that preserves \(\Theta(1)\) random access and also
+-- allows the full range of 'VU.Vector' operations. If you are concerned about
+-- space usage above all, this is the best choice for you. 
+--
+-- Because access to individual bits is slower than whole bytes or words, this
+-- encoding adds some overhead. Additionally, a primary advantage of bit arrays
+-- (the ability to perform \'bulk\' operations on bits efficiently) is not made
+-- use of here. Therefore, if speed matters more than compactness, this encoding
+-- is suboptimal.
+--
+-- This encoding is __not__ thread-safe, in exchange for performance. If you
+-- suspect race conditions are possible, it's better to use
+-- "Data.Finitary.PackBits" instead.
 module Data.Finitary.PackBits.Unsafe 
 (
   PackBits, pattern Packed
@@ -56,26 +77,51 @@ import CoercibleUtils (op, over, over2)
 import Data.Kind (Type)
 import Data.Hashable (Hashable(..))
 import Data.Vector.Instances ()
+import Data.Vector.Binary ()
 import Control.DeepSeq (NFData(..))
 import Data.Finitary(Finitary(..))
 import Data.Finite (Finite)
 import Control.Monad.Trans.State.Strict (evalState, get, modify, put)
 
+import qualified Data.Binary as Bin
 import qualified Data.Bit as B
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Unboxed as VU
 
+-- | An opaque wrapper around @a@, representing each value as a 'bit-packed'
+-- encoding.
 newtype PackBits (a :: Type) = PackBits (VU.Vector B.Bit)
   deriving (Eq, Ord)
 
 type role PackBits nominal
 
+-- | To provide (something that resembles a) data constructor for 'PackBits', we
+-- provide the following pattern. It can be used like any other data
+-- constructor:
+--
+-- > import Data.Finitary.PackBits
+-- >
+-- > anInt :: PackBits Int
+-- > anInt = Packed 10
+-- >
+-- > isPackedEven :: PackBits Int -> Bool
+-- > isPackedEven (Packed x) = even x
+--
+-- __Every__ pattern match, and data constructor call, performs a
+-- \(\Theta(\log_{2}(\texttt{Cardinality a}))\) encoding or decoding operation. 
+-- Use with this in mind.
 pattern Packed :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
   PackBits a -> a
 pattern Packed x <- (packBits -> x)
   where Packed x = unpackBits x
+
+instance Bin.Binary (PackBits a) where
+  {-# INLINE put #-}
+  put = Bin.put . B.cloneToWords . op PackBits
+  {-# INLINE get #-}
+  get = PackBits . B.castFromWords <$> Bin.get
 
 instance Hashable (PackBits a) where
   {-# INLINE hashWithSalt #-}

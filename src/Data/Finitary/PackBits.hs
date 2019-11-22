@@ -77,11 +77,13 @@ import CoercibleUtils (op, over, over2)
 import Data.Kind (Type)
 import Data.Hashable (Hashable(..))
 import Data.Vector.Instances ()
+import Data.Vector.Binary ()
 import Control.DeepSeq (NFData(..))
 import Data.Finitary(Finitary(..))
 import Data.Finite (Finite)
 import Control.Monad.Trans.State.Strict (evalState, get, modify, put)
 
+import qualified Data.Binary as Bin
 import qualified Data.Bit.ThreadSafe as BT
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
@@ -114,6 +116,12 @@ pattern Packed :: forall (a :: Type) .
   PackBits a -> a
 pattern Packed x <- (packBits -> x)
   where Packed x = unpackBits x
+
+instance Bin.Binary (PackBits a) where
+  {-# INLINE put #-}
+  put = Bin.put . BT.cloneToWords . op PackBits
+  {-# INLINE get #-}
+  get = PackBits . BT.castFromWords <$> Bin.get
 
 instance Hashable (PackBits a) where
   {-# INLINE hashWithSalt #-}
