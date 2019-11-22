@@ -1,10 +1,11 @@
 # Revision history for finitary-derive
 
-## 2.0.0.0 --
+## 2.0.0.0 -- 2019-11-23
 
 * Remove ``Data.Finitary.Pack``.
 * Add ``Data.Finitary.PackBits``, ``Data.Finitary.PackWords``,
-  ``Data.Finitary.PackBytes`` and ``Data.Finitary.PackBits.Unsafe``.
+  ``Data.Finitary.PackBytes``, ``Data.Finitary.PackBits.Unsafe`` and
+  ``Data.Finitary.PackInto``
 * Refactor 'packing-agnostic' functionality into ``Data.Finitary.Finiteness``.
 * A lot of documentation changes.
 
