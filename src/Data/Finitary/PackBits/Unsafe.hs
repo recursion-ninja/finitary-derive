@@ -118,9 +118,9 @@ type role PackBits nominal
 -- Use with this in mind.
 pattern Packed :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
-  PackBits a -> a
-pattern Packed x <- (packBits -> x)
-  where Packed x = unpackBits x
+  a -> PackBits a
+pattern Packed x <- (unpackBits -> x)
+  where Packed x = packBits x
 
 instance Ord (PackBits a) where
   compare (PackBits v1) (PackBits v2) = getDual . VU.foldr go (Dual EQ) . VU.zipWith (,) v1 $ v2

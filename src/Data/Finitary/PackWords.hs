@@ -107,9 +107,9 @@ type role PackWords nominal
 -- Use with this in mind.
 pattern Packed :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
-  PackWords a -> a
-pattern Packed x <- (packWords -> x)
-  where Packed x = unpackWords x
+  a -> PackWords a
+pattern Packed x <- (unpackWords -> x)
+  where Packed x = packWords x
 
 instance Ord (PackWords a) where
   compare (PackWords v1) (PackWords v2) = getDual . VU.foldr go (Dual EQ) . VU.zipWith (,) v1 $ v2

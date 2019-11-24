@@ -108,9 +108,9 @@ type role PackBytes nominal
 -- Use with this in mind.
 pattern Packed :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
-  PackBytes a -> a
-pattern Packed x <- (packBytes -> x)
-  where Packed x = unpackBytes x
+  a -> PackBytes a
+pattern Packed x <- (unpackBytes -> x)
+  where Packed x = packBytes x
 
 instance Ord (PackBytes a) where
   compare (PackBytes v1) (PackBytes v2) = getDual . VU.foldr go (Dual EQ) . VU.zipWith (,) v1 $ v2

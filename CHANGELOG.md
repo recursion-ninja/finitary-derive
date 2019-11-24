@@ -3,6 +3,7 @@
 ## 2.1.0.0 -- 2019-11-24
 
 * Fix bug in ``Ord`` instances for the ``Pack*`` types.
+* Fix definition of ``Packed`` pattern to actually agree with the documentation.
 * Define a ``newtype`` wrapper for better provision of ``Binary`` and
   ``Hashable`` instances for ``Vector``s of ``PackBits`` types.
 * Remove ``Hashable`` and ``Binary`` instances for ``PackBits`` (both

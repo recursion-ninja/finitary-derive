@@ -50,6 +50,8 @@ import Data.Finitary.PackInto (PackInto)
 
 import qualified Data.Finitary.PackBits as Safe
 import qualified Data.Finitary.PackBits.Unsafe as Unsafe
+import qualified Data.Finitary.PackBytes as PackBytes
+import qualified Data.Finitary.PackWords as PackWords
 
 data Foo = Bar | Baz Word8 Word8 | Quux Word16
   deriving (Eq, Show, Generic, Finitary)
@@ -73,10 +75,12 @@ finitenessLaws p = [binaryLaws p, ordLaws p]
 packLaws :: (Eq a, Show a, Storable a) => Gen a -> [Laws]
 packLaws p = [storableLaws p]
 
-ordIsMonotonic :: forall (a :: Type) . (Finitary a, Show a, Ord a) => Property
-ordIsMonotonic = property $ do x <- forAll $ choose @a
-                               y <- forAll $ choose @a
-                               (x < y) === (toFinite x < toFinite y)
+ordIsMonotonic :: forall (a :: Type) (t :: Type -> Type) . 
+  (Finitary a, Show a, Ord a, Ord (t a)) => 
+  (a -> t a) -> Property
+ordIsMonotonic f = property $ do x <- forAll $ choose @a
+                                 y <- forAll $ choose @a
+                                 (x < y) === (f x < f y)
 
 finitenessTests :: [(String, [Laws])]
 finitenessTests = [("Small Finiteness", finitenessLaws @Foo choose),
@@ -92,7 +96,11 @@ packTests = [("Small PackBytes", packLaws @(PackBytes Foo) choose),
 main :: IO Bool
 main = (&&) <$> checkLaws <*> checkMonotonicity
   where checkLaws = (&&) <$> lawsCheckMany finitenessTests <*> lawsCheckMany packTests
-        checkMonotonicity = checkParallel . Group "Monotonicity" $ [("Small PackBits", ordIsMonotonic @(Safe.PackBits Foo)),
-                                                                    ("Small unsafe PackBits", ordIsMonotonic @(Unsafe.PackBits Foo)),
-                                                                    ("Big PackBits", ordIsMonotonic @(Safe.PackBits Big)),
-                                                                    ("Big unsafe PackBits", ordIsMonotonic @(Unsafe.PackBits Big))]
+        checkMonotonicity = checkParallel . Group "Monotonicity" $ [("Small PackBits", ordIsMonotonic @Foo Safe.Packed),
+                                                                    ("Small unsafe PackBits", ordIsMonotonic @Foo Unsafe.Packed),
+                                                                    ("Small PackBytes", ordIsMonotonic @Foo PackBytes.Packed),
+                                                                    ("Small PackWords", ordIsMonotonic @Foo PackWords.Packed),
+                                                                    ("Big PackBits", ordIsMonotonic @Big Safe.Packed),
+                                                                    ("Big unsafe PackBits", ordIsMonotonic @Big Unsafe.Packed),
+                                                                    ("Big PackBytes", ordIsMonotonic @Big PackBytes.Packed),
+                                                                    ("Big PackWords", ordIsMonotonic @Big PackWords.Packed)]
