@@ -3,7 +3,7 @@ name:                  finitary-derive
 -- PVP summary:        +-+------- breaking API changes
 --                     | | +----- non-breaking API additions
 --                     | | | +--- code changes with no API change
-version:               2.0.0.0
+version:               2.1.0.0
 synopsis:              Flexible and easy deriving of type classes for finitary
                        types.
 description:           Provides a collection of wrappers, allowing you to easily
@@ -52,6 +52,7 @@ library
 test-suite tests
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
+  ghc-options:         -O2 -threaded -rtsopts -with-rtsopts=-N
   hs-source-dirs:      test
   build-depends:       base >= 4.12 && < 4.14,
                        hedgehog >= 1.0.1 && < 1.1,

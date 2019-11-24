@@ -97,7 +97,7 @@ import qualified Data.Vector.Unboxed as VU
 -- | An opaque wrapper around @a@, representing each value as a 'bit-packed'
 -- encoding.
 newtype PackBits (a :: Type) = PackBits (VU.Vector B.Bit)
-  deriving (Eq)
+  deriving (Eq, Show)
 
 type role PackBits nominal
 

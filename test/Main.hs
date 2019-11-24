@@ -15,6 +15,8 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -46,6 +48,9 @@ import Data.Finitary.PackBytes (PackBytes)
 import Data.Finitary.PackWords (PackWords)
 import Data.Finitary.PackInto (PackInto)
 
+import qualified Data.Finitary.PackBits as Safe
+import qualified Data.Finitary.PackBits.Unsafe as Unsafe
+
 data Foo = Bar | Baz Word8 Word8 | Quux Word16
   deriving (Eq, Show, Generic, Finitary)
   deriving (Ord, Bounded, NFData, Hashable, Binary) via (Finiteness Foo)
@@ -68,6 +73,11 @@ finitenessLaws p = [binaryLaws p, ordLaws p]
 packLaws :: (Eq a, Show a, Storable a) => Gen a -> [Laws]
 packLaws p = [storableLaws p]
 
+ordIsMonotonic :: forall (a :: Type) . (Finitary a, Show a, Ord a) => Property
+ordIsMonotonic = property $ do x <- forAll $ choose @a
+                               y <- forAll $ choose @a
+                               (x < y) === (toFinite x < toFinite y)
+
 finitenessTests :: [(String, [Laws])]
 finitenessTests = [("Small Finiteness", finitenessLaws @Foo choose),
                    ("Big Finiteness", finitenessLaws @Big choose)]
@@ -80,4 +90,9 @@ packTests = [("Small PackBytes", packLaws @(PackBytes Foo) choose),
              ("Small packed into Word64", packLaws @(PackInto Foo Word64) choose)]
 
 main :: IO Bool
-main = (&&) <$> lawsCheckMany finitenessTests <*> lawsCheckMany packTests
+main = (&&) <$> checkLaws <*> checkMonotonicity
+  where checkLaws = (&&) <$> lawsCheckMany finitenessTests <*> lawsCheckMany packTests
+        checkMonotonicity = checkParallel . Group "Monotonicity" $ [("Small PackBits", ordIsMonotonic @(Safe.PackBits Foo)),
+                                                                    ("Small unsafe PackBits", ordIsMonotonic @(Unsafe.PackBits Foo)),
+                                                                    ("Big PackBits", ordIsMonotonic @(Safe.PackBits Big)),
+                                                                    ("Big unsafe PackBits", ordIsMonotonic @(Unsafe.PackBits Big))]
