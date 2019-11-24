@@ -190,7 +190,7 @@ instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (PackBits a)
 
 -- | This wrapper provides an efficient 'Hashable' instance (hash the entire
 -- underlying bit-packed vector, rather than each element individually), as well
--- as a 'Bin.Binary' and 'Storable' instance (which stores the entire blob of
+-- as a 'Bin.Binary' instance (which stores or reads the entire blob of
 -- bits \'in one go\').
 newtype BulkPack a = BulkPack { exposeVector :: VU.Vector (PackBits a) }
   deriving (NFData)
