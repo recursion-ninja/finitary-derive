@@ -23,6 +23,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- |
 -- Module:        Data.Finitary.PackInto
@@ -110,9 +111,9 @@ pattern Packed :: forall (b :: Type) (a :: Type) .
 pattern Packed x <- (packInto -> x)
   where Packed x = unpackOutOf x
 
-instance (Finitary a, Finitary b, Cardinality a <= Cardinality b) => Ord (PackInto a b) where
+instance (Ord a, Finitary a, Finitary b, Cardinality a <= Cardinality b) => Ord (PackInto a b) where
   {-# INLINE compare #-}
-  compare = comparing toFinite
+  compare = comparing @a (fromFinite . toFinite)
 
 instance (Hashable b) => Hashable (PackInto a b) where
   {-# INLINE hashWithSalt #-}

@@ -1,5 +1,14 @@
 # Revision history for finitary-derive
 
+## 2.1.0.0 -- 2019-11-24
+
+* Fix bug in ``Ord`` instances for the ``Pack*`` types.
+* Define a ``newtype`` wrapper for better provision of ``Binary`` and
+  ``Hashable`` instances for ``Vector``s of ``PackBits`` types.
+* Remove ``Hashable`` and ``Binary`` instances for ``PackBits`` (both
+  varieties).
+* Fix documentation typoes.
+
 ## 2.0.0.0 -- 2019-11-23
 
 * Remove ``Data.Finitary.Pack``.

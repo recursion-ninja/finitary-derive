@@ -30,6 +30,8 @@
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- |
 -- Module:        Data.Finitary.PackBits
@@ -41,7 +43,8 @@
 -- Portability:   GHC only
 --
 -- From the [Kraft-McMillan
--- inequality](https://en.wikipedia.org/wiki/Kraft%E2%80%93McMillan_inequality),
+-- inequality](https://en.wikipedia.org/wiki/Kraft%E2%80%93McMillan_inequality)
+-- and 
 -- the fact that we are not able to have \'fractional\' bits, we can derive a
 -- fixed-length code into a bitstring for any 'Finitary' type @a@, with code
 -- length \(\lceil \log_{2}(\texttt{Cardinality a}) \rceil\) bits. This code is
@@ -66,7 +69,8 @@
 -- by using "Data.Finitary.PackBits.Unsafe" instead.
 module Data.Finitary.PackBits 
 (
-  PackBits, pattern Packed
+  PackBits, pattern Packed,
+  BulkPack, exposeVector
 ) where
 
 import GHC.TypeLits.Extra
@@ -82,6 +86,7 @@ import Control.DeepSeq (NFData(..))
 import Data.Finitary(Finitary(..))
 import Data.Finite (Finite)
 import Control.Monad.Trans.State.Strict (evalState, get, modify, put)
+import Data.Semigroup (Dual(..))
 
 import qualified Data.Binary as Bin
 import qualified Data.Bit.ThreadSafe as BT
@@ -92,7 +97,7 @@ import qualified Data.Vector.Unboxed as VU
 -- | An opaque wrapper around @a@, representing each value as a 'bit-packed'
 -- encoding.
 newtype PackBits (a :: Type) = PackBits (VU.Vector BT.Bit)
-  deriving (Eq, Ord)
+  deriving (Eq)
 
 type role PackBits nominal
 
@@ -117,15 +122,9 @@ pattern Packed :: forall (a :: Type) .
 pattern Packed x <- (packBits -> x)
   where Packed x = unpackBits x
 
-instance Bin.Binary (PackBits a) where
-  {-# INLINE put #-}
-  put = Bin.put . BT.cloneToWords . op PackBits
-  {-# INLINE get #-}
-  get = PackBits . BT.castFromWords <$> Bin.get
-
-instance Hashable (PackBits a) where
-  {-# INLINE hashWithSalt #-}
-  hashWithSalt salt = hashWithSalt salt . BT.cloneToWords . op PackBits
+instance Ord (PackBits a) where
+  compare (PackBits v1) (PackBits v2) = getDual . VU.foldr go (Dual EQ) . VU.zipWith (,) v1 $ v2
+    where go input order = (order <>) . Dual . uncurry compare $ input
 
 instance NFData (PackBits a) where
   {-# INLINE rnf #-}
@@ -178,6 +177,27 @@ instance (Finitary a, 1 <= Cardinality a) => VG.Vector VU.Vector (PackBits a) wh
   basicUnsafeIndexM (V_PackBits v) i = pure . PackBits . VG.unsafeSlice (i * bitLength @a) (bitLength @a) $ v
 
 instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (PackBits a)
+
+-- | This wrapper provides an efficient 'Hashable' instance (hash the entire
+-- underlying bit-packed vector, rather than each element individually), as well
+-- as a 'Bin.Binary' and 'Storable' instance (which stores the entire blob of
+-- bits \'in one go\').
+newtype BulkPack a = BulkPack { exposeVector :: VU.Vector (PackBits a) }
+  deriving (NFData)
+
+deriving instance (Finitary a, 1 <= Cardinality a) => Eq (BulkPack a)
+
+deriving instance (Finitary a, 1 <= Cardinality a) => Ord (BulkPack a)
+
+instance Hashable (BulkPack a) where
+  {-# INLINE hashWithSalt #-}
+  hashWithSalt salt = hashWithSalt salt . BT.cloneToWords . op V_PackBits . op BulkPack
+
+instance Bin.Binary (BulkPack a) where
+  {-# INLINE put #-}
+  put = Bin.put . BT.cloneToWords . op V_PackBits . op BulkPack
+  {-# INLINE get #-}
+  get = BulkPack . V_PackBits . BT.castFromWords <$> Bin.get
 
 -- Helpers
 

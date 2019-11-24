@@ -76,6 +76,7 @@ import Numeric.Natural (Natural)
 import Data.Hashable (Hashable(..))
 import Control.DeepSeq (NFData(..))
 import Control.Monad.Trans.State.Strict (evalState, get, modify, put)
+import Data.Semigroup (Dual(..))
 
 import qualified Data.Binary as Bin
 import qualified Data.Vector.Unboxed as VU
@@ -85,7 +86,7 @@ import qualified Data.Vector.Generic.Mutable as VGM
 -- | An opaque wrapper around @a@, representing each value as a fixed-length
 -- array of machine words.
 newtype PackWords (a :: Type) = PackWords (VU.Vector Word)
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Show)
 
 type role PackWords nominal
 
@@ -109,6 +110,10 @@ pattern Packed :: forall (a :: Type) .
   PackWords a -> a
 pattern Packed x <- (packWords -> x)
   where Packed x = unpackWords x
+
+instance Ord (PackWords a) where
+  compare (PackWords v1) (PackWords v2) = getDual . VU.foldr go (Dual EQ) . VU.zipWith (,) v1 $ v2
+    where go input order = (order <>) . Dual . uncurry compare $ input
 
 instance Bin.Binary (PackWords a) where
   {-# INLINE put #-}

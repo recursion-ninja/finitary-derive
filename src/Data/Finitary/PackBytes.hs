@@ -78,6 +78,7 @@ import Foreign.Ptr (castPtr, plusPtr)
 import Numeric.Natural (Natural)
 import Data.Finite (Finite)
 import Control.Monad.Trans.State.Strict (evalState, get, modify, put)
+import Data.Semigroup (Dual(..))
 
 import qualified Data.Binary as Bin
 import qualified Data.Vector.Unboxed as VU
@@ -86,7 +87,7 @@ import qualified Data.Vector.Generic.Mutable as VGM
 
 -- | An opaque wrapper around @a@, representing each value as a byte string.
 newtype PackBytes (a :: Type) = PackBytes (VU.Vector Word8)
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Show)
 
 type role PackBytes nominal
 
@@ -110,6 +111,10 @@ pattern Packed :: forall (a :: Type) .
   PackBytes a -> a
 pattern Packed x <- (packBytes -> x)
   where Packed x = unpackBytes x
+
+instance Ord (PackBytes a) where
+  compare (PackBytes v1) (PackBytes v2) = getDual . VU.foldr go (Dual EQ) . VU.zipWith (,) v1 $ v2
+    where go input order = (order <>) . Dual . uncurry compare $ input
 
 instance Bin.Binary (PackBytes a) where
   {-# INLINE put #-}
