@@ -114,8 +114,12 @@ explicit about it.
 
 ## Sounds good! Can I use it?
 
-Certainly - we've tested on GHC 8.4.4, 8.6.5 and 8.8.1, on GNU/Linux only. If
-you would like support for any additional GHC versions, let us know.
+Certainly - we've tested on the following (all x86_64 only):
+
+* __GNU/Linux:__ GHC 8.4.4, 8.6.5, 8.8.1
+* __macOS:__ GHC 8.8.1
+
+If you would like support for any additional GHC versions, let us know.
 Unfortunately, while the library will _build_ on 8.4.4, due to
 ``hedgehog-classes`` being limited to 8.6+, tests cannot be run on this version.
 

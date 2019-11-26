@@ -1,5 +1,10 @@
 # Revision history for finitary-derive
 
+## 2.2.0.0 -- 2019-11-27
+
+* Fix definition of ``Packed`` for ``PackInto`` to actually agree with the
+  documentation.
+
 ## 2.1.0.0 -- 2019-11-24
 
 * Fix bug in ``Ord`` instances for the ``Pack*`` types.

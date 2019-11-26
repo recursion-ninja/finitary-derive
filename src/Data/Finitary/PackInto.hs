@@ -107,9 +107,9 @@ type role PackInto nominal nominal
 -- mind.
 pattern Packed :: forall (b :: Type) (a :: Type) . 
   (Finitary a, Finitary b, Cardinality a <= Cardinality b) =>
-  PackInto a b -> a
-pattern Packed x <- (packInto -> x)
-  where Packed x = unpackOutOf x
+  a -> PackInto a b
+pattern Packed x <- (unpackOutOf -> x)
+  where Packed x = packInto x
 
 instance (Ord a, Finitary a, Finitary b, Cardinality a <= Cardinality b) => Ord (PackInto a b) where
   {-# INLINE compare #-}

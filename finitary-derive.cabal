@@ -3,7 +3,7 @@ name:                  finitary-derive
 -- PVP summary:        +-+------- breaking API changes
 --                     | | +----- non-breaking API additions
 --                     | | | +--- code changes with no API change
-version:               2.1.0.0
+version:               2.2.0.0
 synopsis:              Flexible and easy deriving of type classes for finitary
                        types.
 description:           Provides a collection of wrappers, allowing you to easily
