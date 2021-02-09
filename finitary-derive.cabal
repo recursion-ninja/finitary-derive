@@ -3,7 +3,7 @@ name:                  finitary-derive
 -- PVP summary:        +-+------- breaking API changes
 --                     | | +----- non-breaking API additions
 --                     | | | +--- code changes with no API change
-version:               2.2.0.0
+version:               2.2.0.1
 synopsis:              Flexible and easy deriving of type classes for finitary
                        types.
 description:           Provides a collection of wrappers, allowing you to easily
@@ -11,16 +11,18 @@ description:           Provides a collection of wrappers, allowing you to easily
                        Binary instances for finitary types with flexibility in
                        terms of representation and efficiency. Never write an
                        Unbox instance by hand again!
-homepage:              https://notabug.org/koz.ross/finitary-derive
+homepage:              https://notabug.org/sheaf/finitary-derive
 license:               GPL-3.0-or-later
 license-file:          LICENSE.md
 author:                Koz Ross
-maintainer:            koz.ross@retro-freedom.nz
+maintainer:            Sam Derbyshire
 copyright:             (C) Koz Ross 2019
 category:              Data
 tested-with:           GHC == 8.4.4,
                        GHC == 8.6.5,
-                       GHC == 8.8.1
+                       GHC == 8.8.1,
+                       GHC == 8.10.4,
+                       GHC == 9.0.1
 build-type:            Simple
 extra-source-files:    CHANGELOG.md,
                        README.md
@@ -32,19 +34,19 @@ library
                        Data.Finitary.PackBytes,
                        Data.Finitary.PackWords,
                        Data.Finitary.PackInto
-  build-depends:       base >= 4.11 && < 4.14,
-                       finitary >= 1.2.0.0 && < 1.3.0.0,
+  build-depends:       base >= 4.11 && < 4.16,
+                       finitary >= 1.2.0.0 && < 2.2,
                        vector >= 0.12.0.3 && < 0.13.0.0,
                        coercible-utils >= 0.0.0 && < 0.1.0,
                        finite-typelits >= 0.1.4.2 && < 0.2.0.0,
-                       binary >= 0.8.5.1 && < 0.9.0.0,
+                       binary >= 0.8.5.1 && < 0.11.0.0,
                        deepseq >= 1.4.3.0 && < 1.5.0.0,
                        hashable >= 1.3.0.0 && < 1.4.0.0,
-                       ghc-typelits-extra >= 0.3.1 && < 0.4.0,
+                       ghc-typelits-extra >= 0.3.1 && < 0.5,
                        ghc-typelits-knownnat >= 0.7 && < 0.8,
                        vector-instances >= 3.4 && < 3.5,
                        transformers >= 0.5.5.0 && < 0.6.0.0,
-                       bitvec >= 1.0.2.0 && < 1.1.0.0,
+                       bitvec >= 1.0.2.0 && < 1.2.0.0,
                        vector-binary-instances >= 0.2.5.1 && < 0.3.0.0
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -54,7 +56,7 @@ test-suite tests
   main-is:             Main.hs
   ghc-options:         -O2 -threaded -rtsopts -with-rtsopts=-N
   hs-source-dirs:      test
-  build-depends:       base >= 4.12 && < 4.14,
+  build-depends:       base >= 4.12 && < 4.16,
                        hedgehog >= 1.0.1 && < 1.1,
                        hedgehog-classes >= 0.2.4 && < 0.3.0,
                        finitary-derive,

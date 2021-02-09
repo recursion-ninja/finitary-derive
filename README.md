@@ -118,6 +118,7 @@ Certainly - we've tested on the following (all x86_64 only):
 
 * __GNU/Linux:__ GHC 8.4.4, 8.6.5, 8.8.1
 * __macOS:__ GHC 8.8.1
+* __Windows:__ GHC 8.10.4, 9.0.1
 
 If you would like support for any additional GHC versions, let us know.
 Unfortunately, while the library will _build_ on 8.4.4, due to

@@ -30,7 +30,6 @@
 --                @Finitary@ types.
 -- Copyright:     (C) Koz Ross 2019
 -- License:       GPL version 3.0 or later
--- Maintainer:    koz.ross@retro-freedom.nz
 -- Stability:     Experimental
 -- Portability:   GHC only
 --

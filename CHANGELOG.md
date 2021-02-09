@@ -1,5 +1,9 @@
 # Revision history for finitary-derive
 
+## 2.2.0.1 -- 2021-02-09
+
+* Update bounds for compatibility with GHC 9.0
+
 ## 2.2.0.0 -- 2019-11-27
 
 * Fix definition of ``Packed`` for ``PackInto`` to actually agree with the

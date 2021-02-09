@@ -34,7 +34,6 @@
 -- Description:   Scheme for packing @Finitary@ types into @Word@ arrays.
 -- Copyright:     (C) Koz Ross 2019
 -- License:       GPL version 3.0 or later
--- Maintainer:    koz.ross@retro-freedom.nz
 -- Stability:     Experimental
 -- Portability:   GHC only
 --
