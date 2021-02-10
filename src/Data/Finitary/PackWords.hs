@@ -232,19 +232,21 @@ instance (Finitary a, 1 <= Cardinality a) => VGM.MVector VU.MVector (PackWords a
   basicUnsafeRead (MV_PackWords (VU.MV_Word (VPM.MVector (I# off) _ (MutableByteArray full_mba)))) (I# i) =
     primitive $ \ s1 ->
       case newByteArray# nbBytes s1 of
-        (# s2, elem_mba #) -> case copyMutableByteArray# full_mba (off +# nbBytes *# i) elem_mba 0# nbBytes s2 of
+        (# s2, elem_mba #) -> case copyMutableByteArray# full_mba (wordSize *# off +# nbBytes *# i) elem_mba 0# nbBytes s2 of
           s3 -> case unsafeFreezeByteArray# elem_mba s3 of
             (# s4, elem_ba #) -> (# s4, PackedWords (ByteArray elem_ba) #)
     where
-      nbBytes :: Int#
+      nbBytes, wordSize :: Int#
       !(I# nbBytes) = bytesPerWord * wordLength @a
+      !(I# wordSize) = bytesPerWord
   {-# INLINABLE basicUnsafeWrite #-}
   basicUnsafeWrite (MV_PackWords (VU.MV_Word (VPM.MVector (I# off) _ (MutableByteArray full_mba)))) (I# i) (PackedWords (ByteArray val_ba)) =
-    primitive $ \ s1 -> case copyByteArray# val_ba 0# full_mba (off +# nbBytes *# i) nbBytes s1 of
+    primitive $ \ s1 -> case copyByteArray# val_ba 0# full_mba (wordSize *# off +# nbBytes *# i) nbBytes s1 of
       s2 -> (# s2, () #)
       where
-        nbBytes :: Int#
+        nbBytes, wordSize :: Int#
         !(I# nbBytes) = bytesPerWord * wordLength @a
+        !(I# wordSize) = bytesPerWord
 
 newtype instance VU.Vector (PackWords a) = V_PackWords (VU.Vector Word)
 
@@ -261,12 +263,13 @@ instance (Finitary a, 1 <= Cardinality a) => VG.Vector VU.Vector (PackWords a) w
   basicUnsafeIndexM (V_PackWords (VU.V_Word (VP.Vector (I# off) _ (ByteArray full_ba)))) (I# i) =
     pure $ runRW# $ \ s1 ->
       case newByteArray# nbBytes s1 of
-        (# s2, elem_mba #) -> case copyByteArray# full_ba (off +# nbBytes *# i) elem_mba 0# nbBytes s2 of
+        (# s2, elem_mba #) -> case copyByteArray# full_ba (wordSize *# off +# nbBytes *# i) elem_mba 0# nbBytes s2 of
           s3 -> case unsafeFreezeByteArray# elem_mba s3 of
             (# _, elem_ba #) -> PackedWords (ByteArray elem_ba)
     where
-      nbBytes :: Int#
+      nbBytes, wordSize :: Int#
       !(I# nbBytes) = bytesPerWord * wordLength @a
+      !(I# wordSize) = bytesPerWord
 
 instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (PackWords a)
 

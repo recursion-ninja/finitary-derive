@@ -15,49 +15,69 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
  -}
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeInType #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE TypeInType #-}
 
 module Main where
 
+-- base
 import Data.Kind (Type)
-import GHC.TypeNats
-import GHC.Generics (Generic)
 import Data.Word (Word8, Word16, Word64)
-import Hedgehog
-import Hedgehog.Classes
-import Data.Finitary (Finitary(..))
-import Data.Finite (Finite)
-import Data.Proxy (Proxy(..))
-import Control.DeepSeq (NFData)
-import Data.Hashable (Hashable(..))
-import Data.Binary (Binary)
 import Foreign.Storable (Storable)
+import GHC.Exts (proxy#)
+import GHC.Generics (Generic)
+import GHC.TypeNats (Nat, KnownNat, natVal')
 
-import qualified Hedgehog.Gen as G
-import qualified Hedgehog.Range as R
+-- binary
+import Data.Binary (Binary)
 
+-- deepseq
+import Control.DeepSeq (NFData)
+
+-- finitary
+import Data.Finitary (Finitary(..))
+
+-- finitary-derive
 import Data.Finitary.Finiteness (Finiteness(..))
 import Data.Finitary.PackBytes (PackBytes)
 import Data.Finitary.PackWords (PackWords)
 import Data.Finitary.PackInto (PackInto)
-
 import qualified Data.Finitary.PackBits as Safe
 import qualified Data.Finitary.PackBits.Unsafe as Unsafe
 import qualified Data.Finitary.PackBytes as PackBytes
 import qualified Data.Finitary.PackWords as PackWords
 
+-- finite-typelits
+import Data.Finite (Finite)
+
+-- hashable
+import Data.Hashable (Hashable(..))
+
+-- hedgehog
+import Hedgehog
+import qualified Hedgehog.Gen as G
+import qualified Hedgehog.Range as R
+
+-- hedgehog-classes
+import Hedgehog.Classes
+
+-- vector
+import Data.Vector.Unboxed (Unbox)
+
+--------------------------------------------------------------------------------
+
 data Foo = Bar | Baz Word8 Word8 | Quux Word16
   deriving (Eq, Show, Generic, Finitary)
   deriving (Ord, Bounded, NFData, Hashable, Binary) via (Finiteness Foo)
 
-data Big = Big Word64 Word64
+data Big = Big Word64 Word64 | Mediums Foo Foo Foo Foo
   deriving (Eq, Show, Generic, Finitary)
   deriving (Ord, Bounded, NFData, Hashable, Binary) via (Finiteness Big)
 
@@ -67,13 +87,16 @@ choose = fromFinite <$> chooseFinite
 
 chooseFinite :: forall (n :: Nat) m . (KnownNat n, MonadGen m) => m (Finite n)
 chooseFinite = fromIntegral <$> G.integral (R.linear 0 limit)
-  where limit = subtract @Integer 1 . fromIntegral . natVal @n $ Proxy
+  where limit = subtract @Integer 1 . fromIntegral $ natVal' @n proxy#
 
 finitenessLaws :: (Show a, Binary a, Ord a) => Gen a -> [Laws]
 finitenessLaws p = [binaryLaws p, ordLaws p]
 
 packLaws :: (Eq a, Show a, Storable a) => Gen a -> [Laws]
 packLaws p = [storableLaws p]
+
+vectorLaws :: (Eq a, Show a, Unbox a) => Gen a -> [Laws]
+vectorLaws p = [muvectorLaws p]
 
 ordIsMonotonic :: forall (a :: Type) (t :: Type -> Type) . 
   (Finitary a, Show a, Ord a, Ord (t a)) => 
@@ -82,25 +105,48 @@ ordIsMonotonic f = property $ do x <- forAll $ choose @a
                                  y <- forAll $ choose @a
                                  (x < y) === (f x < f y)
 
-finitenessTests :: [(String, [Laws])]
-finitenessTests = [("Small Finiteness", finitenessLaws @Foo choose),
-                   ("Big Finiteness", finitenessLaws @Big choose)]
+finitenessTests :: [(String,[Laws])]
+finitenessTests =
+  [ ("Small Finiteness", finitenessLaws @Foo choose)
+  , ("Big Finiteness"  , finitenessLaws @Big choose)
+  ]
 
-packTests :: [(String, [Laws])]
-packTests = [("Small PackBytes", packLaws @(PackBytes Foo) choose),
-             ("Big PackBytes", packLaws @(PackBytes Big) choose),
-             ("Small PackWords", packLaws @(PackWords Foo) choose),
-             ("Big PackWords", packLaws @(PackWords Big) choose),
-             ("Small packed into Word64", packLaws @(PackInto Foo Word64) choose)]
+packTests :: [(String,[Laws])]
+packTests =
+  [ ("Small PackBytes"         , packLaws @(PackBytes Foo)       choose)
+  , ("Big PackBytes"           , packLaws @(PackBytes Big)       choose)
+  , ("Small PackWords"         , packLaws @(PackWords Foo)       choose)
+  , ("Big PackWords"           , packLaws @(PackWords Big)       choose)
+  , ("Small packed into Word64", packLaws @(PackInto Foo Word64) choose)
+  ]
+
+vectorTests :: [(String,[Laws])]
+vectorTests =
+  [ ("Small PackBits"       , vectorLaws @(Safe.PackBits   Foo) choose)
+  , ("Small unsafe PackBits", vectorLaws @(Unsafe.PackBits Foo) choose)
+  , ("Small PackBytes"      , vectorLaws @(PackBytes       Foo) choose)
+  , ("Small PackWords"      , vectorLaws @(PackWords       Foo) choose)
+  , ("Big PackBits"         , vectorLaws @(Safe.PackBits   Big) choose)
+  , ("Big unsafe PackBits"  , vectorLaws @(Unsafe.PackBits Big) choose)
+  , ("Big PackBytes"        , vectorLaws @(PackBytes       Big) choose)
+  , ("Big PackWords"        , vectorLaws @(PackWords       Big) choose)
+  ]
+
+monotonicTests :: Group
+monotonicTests = Group "Monotonicity" 
+  [ ("Small PackBits"       , ordIsMonotonic @Foo      Safe.Packed)
+  , ("Small unsafe PackBits", ordIsMonotonic @Foo    Unsafe.Packed)
+  , ("Small PackBytes"      , ordIsMonotonic @Foo PackBytes.Packed)
+  , ("Small PackWords"      , ordIsMonotonic @Foo PackWords.Packed)
+  , ("Big PackBits"         , ordIsMonotonic @Big      Safe.Packed)
+  , ("Big unsafe PackBits"  , ordIsMonotonic @Big    Unsafe.Packed)
+  , ("Big PackBytes"        , ordIsMonotonic @Big PackBytes.Packed)
+  , ("Big PackWords"        , ordIsMonotonic @Big PackWords.Packed)
+  ]
+
+checkTest :: Either [(String,[Laws])] Group -> IO Bool
+checkTest ( Left  laws  ) = lawsCheckMany laws
+checkTest ( Right group ) = checkParallel group
 
 main :: IO Bool
-main = (&&) <$> checkLaws <*> checkMonotonicity
-  where checkLaws = (&&) <$> lawsCheckMany finitenessTests <*> lawsCheckMany packTests
-        checkMonotonicity = checkParallel . Group "Monotonicity" $ [("Small PackBits", ordIsMonotonic @Foo Safe.Packed),
-                                                                    ("Small unsafe PackBits", ordIsMonotonic @Foo Unsafe.Packed),
-                                                                    ("Small PackBytes", ordIsMonotonic @Foo PackBytes.Packed),
-                                                                    ("Small PackWords", ordIsMonotonic @Foo PackWords.Packed),
-                                                                    ("Big PackBits", ordIsMonotonic @Big Safe.Packed),
-                                                                    ("Big unsafe PackBits", ordIsMonotonic @Big Unsafe.Packed),
-                                                                    ("Big PackBytes", ordIsMonotonic @Big PackBytes.Packed),
-                                                                    ("Big PackWords", ordIsMonotonic @Big PackWords.Packed)]
+main = and <$> traverse checkTest [ Left finitenessTests, Left packTests, Left vectorTests, Right monotonicTests ]

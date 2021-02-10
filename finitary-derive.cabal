@@ -43,6 +43,8 @@ common common
       >= 0.1.4.2 && < 0.2,
     hashable
       >= 1.3.0.0 && < 1.4,
+    vector
+      >= 0.12.0.3 && < 0.13,
 
   default-language:
     Haskell2010
@@ -77,23 +79,21 @@ library
       >= 0.7 && < 0.8,
     primitive
       >= 0.7.1.0 && < 0.8,
-    vector
-      >= 0.12.0.3 && < 0.13,
     vector-instances
       >= 3.4 && < 3.5,
     vector-binary-instances
-      >= 0.2.5.1 && < 0.3
+      >= 0.2.5.1 && < 0.3,
 
   if impl(ghc >= 9.0)
     cpp-options:
       -DBIGNUM
     build-depends:
       ghc-bignum
-        >= 1.0 && < 1.1
+        >= 1.0 && < 1.1,
   else
     build-depends:
       integer-gmp
-        >= 1.0.2.0 && < 1.2
+        >= 1.0.2.0 && < 1.2,
 
 test-suite tests
 
@@ -115,7 +115,7 @@ test-suite tests
     hedgehog
       >= 1.0.1 && < 1.1,
     hedgehog-classes
-      >= 0.2.4 && < 0.3
+      >= 0.2.4 && < 0.3,
 
   ghc-options:
     -O2 -threaded -rtsopts -with-rtsopts=-N
