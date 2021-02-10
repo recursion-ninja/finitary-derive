@@ -19,15 +19,20 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeInType #-}
-{-# LANGUAGE RoleAnnotations #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RoleAnnotations #-}
+{-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeInType #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- |
 -- Module:        Data.Finitary.PackBytes
@@ -56,35 +61,73 @@
 -- instead, as you will have much larger control over space usage at almost no
 -- performance penalty. 
 module Data.Finitary.PackWords 
-(
-  PackWords, pattern Packed
-) where
+  ( -- * Packing and unpacking between a type and a little-endian array of 'Word's
+    PackWords(.., Packed)
 
-import Data.Vector.Binary ()
-import Data.Vector.Instances ()
-import GHC.TypeNats
-import Data.Proxy (Proxy(..))
-import GHC.TypeLits.Extra
-import CoercibleUtils (op, over, over2)
+  -- * Helpers
+  , intoWords, outOfWords
+  )
+  where
+
+-- base
 import Data.Kind (Type)
-import Data.Finitary (Finitary(..))
-import Data.Finite (Finite)
+import Data.Hashable (Hashable(..), hashByteArrayWithSalt)
 import Foreign.Storable (Storable(..))
-import Foreign.Ptr (castPtr, plusPtr)
-import Numeric.Natural (Natural)
-import Data.Hashable (Hashable(..))
-import Control.DeepSeq (NFData(..))
-import Control.Monad.Trans.State.Strict (evalState, get, modify, put)
-import Data.Semigroup (Dual(..))
+import GHC.Exts
+import GHC.IO
+import GHC.Natural (Natural(..))
+import GHC.TypeNats
 
+-- binary
 import qualified Data.Binary as Bin
-import qualified Data.Vector.Unboxed as VU
-import qualified Data.Vector.Generic as VG
-import qualified Data.Vector.Generic.Mutable as VGM
+
+-- coercible-utils
+import CoercibleUtils (op, over, over2)
+
+-- deepseq
+import Control.DeepSeq (NFData(..))
+
+-- finitary
+import Data.Finitary (Finitary(..))
+
+-- finite-typelits
+import Data.Finite.Internal (Finite(..), getFinite)
+
+-- ghc-typelits-extra
+import GHC.TypeLits.Extra
+
+-- primitive
+import Control.Monad.Primitive (PrimMonad(primitive))
+import Data.Primitive.ByteArray (ByteArray(..), MutableByteArray(..))
+
+-- vector
+import qualified Data.Vector.Unboxed.Base      as VU
+import qualified Data.Vector.Generic           as VG
+import qualified Data.Vector.Primitive         as VP
+import qualified Data.Vector.Generic.Mutable   as VGM
+import qualified Data.Vector.Primitive.Mutable as VPM
+
+-- vector-binary-instances
+import Data.Vector.Binary ()
+
+-- vector-instances
+import Data.Vector.Instances ()
+
+#ifdef BIGNUM
+-- ghc-bignum
+import GHC.Num.BigNat (BigNat(..), bigNatCompare, bigNatSize#)
+import GHC.Num.Integer (integerToNaturalClamp, integerFromBigNat#)
+#else
+-- integer-gmp
+import GHC.Integer.GMP.Internals
+  ( BigNat(..), bigNatToInteger, compareBigNat, sizeofBigNat# )
+#endif
+
+--------------------------------------------------------------------------------
 
 -- | An opaque wrapper around @a@, representing each value as a fixed-length
 -- array of machine words.
-newtype PackWords (a :: Type) = PackWords (VU.Vector Word)
+newtype PackWords (a :: Type) = PackedWords ByteArray
   deriving (Eq, Show)
 
 type role PackWords nominal
@@ -104,36 +147,43 @@ type role PackWords nominal
 -- __Every__ pattern match, and data constructor call, performs a
 -- \(\Theta(\log_{\texttt{Cardinality Word}}(\texttt{Cardinality a}))\) encoding or decoding of @a@.
 -- Use with this in mind.
+{-# COMPLETE Packed #-}
 pattern Packed :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
   a -> PackWords a
 pattern Packed x <- (unpackWords -> x)
   where Packed x = packWords x
 
-instance Ord (PackWords a) where
-  compare (PackWords v1) (PackWords v2) = getDual . VU.foldr go (Dual EQ) . VU.zipWith (,) v1 $ v2
-    where go input order = (order <>) . Dual . uncurry compare $ input
+instance (Finitary a, 1 <= Cardinality a) => Ord (PackWords a) where
+  compare (PackedWords (ByteArray ba1)) (PackedWords (ByteArray ba2)) =
+#ifdef BIGNUM
+    bigNatCompare ba1 ba2
+#else
+    compareBigNat (BN# ba1) (BN# ba2)
+#endif
 
-instance Bin.Binary (PackWords a) where
+-- Re-use primitive vector instance for 'Binary'.
+instance (Finitary a, 1 <= Cardinality a) => Bin.Binary (PackWords a) where
   {-# INLINE put #-}
-  put = Bin.put . op PackWords
+  put = Bin.put . VP.Vector @Word 0 (wordLength @a) . op PackedWords
   {-# INLINE get #-}
-  get = PackWords <$> Bin.get
+  get = PackedWords . ( \ ( VP.Vector _ _ ba :: VP.Vector Word ) -> ba ) <$> Bin.get
 
-instance Hashable (PackWords a) where
+instance (Finitary a, 1 <= Cardinality a) => Hashable (PackWords a) where
   {-# INLINE hashWithSalt #-}
-  hashWithSalt salt = hashWithSalt salt . op PackWords
+  hashWithSalt salt = ( \ ( ByteArray ba ) -> hashByteArrayWithSalt ba 0 (bytesPerWord * wordLength @a) salt )
+                    . op PackedWords
 
 instance NFData (PackWords a) where
   {-# INLINE rnf #-}
-  rnf = rnf . op PackWords
+  rnf = rnf . op PackedWords
 
 instance (Finitary a, 1 <= Cardinality a) => Finitary (PackWords a) where
   type Cardinality (PackWords a) = Cardinality a
   {-# INLINE fromFinite #-}
-  fromFinite = PackWords . intoWords
+  fromFinite = PackedWords . intoWords
   {-# INLINE toFinite #-}
-  toFinite = outOfWords . op PackWords
+  toFinite = outOfWords . op PackedWords
 
 instance (Finitary a, 1 <= Cardinality a) => Bounded (PackWords a) where
   {-# INLINE minBound #-}
@@ -142,17 +192,28 @@ instance (Finitary a, 1 <= Cardinality a) => Bounded (PackWords a) where
   maxBound = end
 
 instance (Finitary a, 1 <= Cardinality a) => Storable (PackWords a) where
-  {-# INLINE sizeOf #-}
+  {-# INLINABLE sizeOf #-}
   sizeOf _ = wordLength @a * bytesPerWord
-  {-# INLINE alignment #-}
+  {-# INLINABLE alignment #-}
   alignment _ = alignment (undefined :: Word)
-  {-# INLINE peek #-}
-  peek ptr = do let wordPtr = castPtr ptr
-                PackWords <$> VU.generateM (wordLength @a) (peek . plusPtr wordPtr . (* bytesPerWord))
+  {-# INLINABLE peek #-}
+  peek (Ptr addr) =
+    IO $ \ s1 ->
+      case newByteArray# nbBytes s1 of
+        (# s2, mba #) -> case copyAddrToByteArray# addr mba 0# nbBytes s2 of
+          s3 -> case unsafeFreezeByteArray# mba s3 of
+            (# s4, ba #) -> (# s4, PackedWords (ByteArray ba) #)
+    where
+      nbBytes :: Int#
+      !(I# nbBytes) = bytesPerWord * wordLength @a
   {-# INLINE poke #-}
-  poke ptr (PackWords v) = do let wordPtr = castPtr ptr
-                              VU.foldM'_ go wordPtr v
-    where go p e = poke p e >> pure (plusPtr p bytesPerWord) 
+  poke (Ptr addr) (PackedWords (ByteArray ba)) =
+    IO $ \ s1 ->
+      case copyByteArrayToAddr# ba 0# addr nbBytes s1 of
+        s2 -> (# s2, () #)
+    where
+      nbBytes :: Int#
+      !(I# nbBytes) = bytesPerWord * wordLength @a
 
 newtype instance VU.MVector s (PackWords a) = MV_PackWords (VU.MVector s Word)
 
@@ -161,17 +222,29 @@ instance (Finitary a, 1 <= Cardinality a) => VGM.MVector VU.MVector (PackWords a
   basicLength = over MV_PackWords ((`div` wordLength @a) . VGM.basicLength)
   {-# INLINE basicOverlaps #-}
   basicOverlaps = over2 MV_PackWords VGM.basicOverlaps
-  {-# INLINE basicUnsafeSlice #-}
+  {-# INLINABLE basicUnsafeSlice #-}
   basicUnsafeSlice i len = over MV_PackWords (VGM.basicUnsafeSlice (i * wordLength @a) (len * wordLength @a))
-  {-# INLINE basicUnsafeNew #-}
+  {-# INLINABLE basicUnsafeNew #-}
   basicUnsafeNew len = MV_PackWords <$> VGM.basicUnsafeNew (len * wordLength @a)
   {-# INLINE basicInitialize #-}
   basicInitialize = VGM.basicInitialize . op MV_PackWords
-  {-# INLINE basicUnsafeRead #-}
-  basicUnsafeRead (MV_PackWords v) i = fmap PackWords . VG.freeze . VGM.unsafeSlice (i * wordLength @a) (wordLength @a) $ v
-  {-# INLINE basicUnsafeWrite #-}
-  basicUnsafeWrite (MV_PackWords v) i (PackWords x) = let slice = VGM.unsafeSlice (i * wordLength @a) (wordLength @a) v in
-                                                        VG.unsafeCopy slice x
+  {-# INLINABLE basicUnsafeRead #-}
+  basicUnsafeRead (MV_PackWords (VU.MV_Word (VPM.MVector (I# off) _ (MutableByteArray full_mba)))) (I# i) =
+    primitive $ \ s1 ->
+      case newByteArray# nbBytes s1 of
+        (# s2, elem_mba #) -> case copyMutableByteArray# full_mba (off +# nbBytes *# i) elem_mba 0# nbBytes s2 of
+          s3 -> case unsafeFreezeByteArray# elem_mba s3 of
+            (# s4, elem_ba #) -> (# s4, PackedWords (ByteArray elem_ba) #)
+    where
+      nbBytes :: Int#
+      !(I# nbBytes) = bytesPerWord * wordLength @a
+  {-# INLINABLE basicUnsafeWrite #-}
+  basicUnsafeWrite (MV_PackWords (VU.MV_Word (VPM.MVector (I# off) _ (MutableByteArray full_mba)))) (I# i) (PackedWords (ByteArray val_ba)) =
+    primitive $ \ s1 -> case copyByteArray# val_ba 0# full_mba (off +# nbBytes *# i) nbBytes s1 of
+      s2 -> (# s2, () #)
+      where
+        nbBytes :: Int#
+        !(I# nbBytes) = bytesPerWord * wordLength @a
 
 newtype instance VU.Vector (PackWords a) = V_PackWords (VU.Vector Word)
 
@@ -182,22 +255,25 @@ instance (Finitary a, 1 <= Cardinality a) => VG.Vector VU.Vector (PackWords a) w
   basicUnsafeFreeze = fmap V_PackWords . VG.basicUnsafeFreeze . op MV_PackWords
   {-# INLINE basicUnsafeThaw #-}
   basicUnsafeThaw = fmap MV_PackWords . VG.basicUnsafeThaw . op V_PackWords
-  {-# INLINE basicUnsafeSlice #-}
+  {-# INLINABLE basicUnsafeSlice #-}
   basicUnsafeSlice i len = over V_PackWords (VG.basicUnsafeSlice (i * wordLength @a) (len * wordLength @a))
-  {-# INLINE basicUnsafeIndexM #-}
-  basicUnsafeIndexM (V_PackWords v) i = pure . PackWords . VG.unsafeSlice (i * wordLength @a) (wordLength @a) $ v
+  {-# INLINABLE basicUnsafeIndexM #-}
+  basicUnsafeIndexM (V_PackWords (VU.V_Word (VP.Vector (I# off) _ (ByteArray full_ba)))) (I# i) =
+    pure $ runRW# $ \ s1 ->
+      case newByteArray# nbBytes s1 of
+        (# s2, elem_mba #) -> case copyByteArray# full_ba (off +# nbBytes *# i) elem_mba 0# nbBytes s2 of
+          s3 -> case unsafeFreezeByteArray# elem_mba s3 of
+            (# _, elem_ba #) -> PackedWords (ByteArray elem_ba)
+    where
+      nbBytes :: Int#
+      !(I# nbBytes) = bytesPerWord * wordLength @a
 
 instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (PackWords a)
 
 -- Helpers
 
-type WordLength a = CLog (Cardinality Word) (Cardinality a)
-
-{-# INLINE bitsPerWord #-}
-bitsPerWord :: forall (a :: Type) . 
-  (Num a) => 
-  a
-bitsPerWord = 8 * bytesPerWord
+type WordLength a = NatWords (Cardinality a)
+type NatWords n = CLog (Cardinality Word) n
 
 {-# INLINE bytesPerWord #-}
 bytesPerWord :: forall (a :: Type) . 
@@ -209,7 +285,13 @@ bytesPerWord = fromIntegral . sizeOf $ (undefined :: Word)
 wordLength :: forall (a :: Type) (b :: Type) . 
   (Finitary a, 1 <= Cardinality a, Num b) => 
   b
-wordLength = fromIntegral . natVal $ (Proxy :: Proxy (WordLength a))
+wordLength = fromIntegral $ natVal' @(WordLength a) proxy#
+
+{-# INLINE natWords #-}
+natWords :: forall (n :: Nat) (b :: Type) .
+  (KnownNat n, 1 <= n, Num b) =>
+  b
+natWords = fromIntegral $ natVal' @(NatWords n) proxy#
 
 {-# INLINE packWords #-}
 packWords :: forall (a :: Type) . 
@@ -223,21 +305,58 @@ unpackWords :: forall (a :: Type) .
   PackWords a -> a
 unpackWords = fromFinite . toFinite
 
-{-# INLINE intoWords #-}
+{-# INLINABLE intoWords #-}
 intoWords :: forall (n :: Nat) . 
   (KnownNat n, 1 <= n) => 
-  Finite n -> VU.Vector Word
-intoWords = evalState (VU.replicateM (wordLength @(Finite n)) go) . fromIntegral @_ @Natural
-  where go = do remaining <- get
-                let (d, r) = quotRem remaining bitsPerWord
-                put d >> pure (fromIntegral r)
+  Finite n -> ByteArray
+intoWords f = runRW# $ \ s1 ->
+  case newByteArray# nbBytes s1 of
+    (# s2, mba #) ->
+      case (
+        case i of
+          NatS# word
+            | 0## <- word
+            -> (# s2, 0# #)
+            | otherwise
+            -> case writeWordArray# mba 0# word s2 of
+                s3 -> (# s3, wordSize #)
+          NatJ# (BN# bigNatArray) ->
+            let
+              nbBytesWritten :: Int#
+#ifdef BIGNUM
+              nbBytesWritten = wordSize *# bigNatSize# bigNatArray
+#else
+              nbBytesWritten = wordSize *# sizeofBigNat# (BN# bigNatArray)
+#endif
+            in
+              case copyByteArray# bigNatArray 0# mba 0# nbBytesWritten s2 of
+                s3 -> (# s3, nbBytesWritten #)
+        ) of
+        (# s3, bytesWritten #) ->
+          case setByteArray# mba bytesWritten (nbBytes -# bytesWritten) 0# s3 of
+            s4 -> case unsafeFreezeByteArray# mba s4 of
+              (# _, ba #) -> ByteArray ba
 
-{-# INLINE outOfWords #-}
-outOfWords :: forall (n :: Nat) . 
+  where
+    wordSize :: Int#
+    !(I# wordSize) = bytesPerWord
+    nbBytes :: Int#
+    !(I# nbBytes) = I# wordSize * natWords @n
+    i :: Natural
+    i =
+#ifdef BIGNUM
+      integerToNaturalClamp ( getFinite f )
+#else
+      fromIntegral ( getFinite f )
+#endif
+
+{-# INLINABLE outOfWords #-}
+outOfWords :: forall (n :: Nat) .
   (KnownNat n) => 
-  VU.Vector Word -> Finite n
-outOfWords v = evalState (VU.foldM' go 0 v) 1
-  where go old w = do power <- get
-                      let placeValue = power * fromIntegral w
-                      modify (* bitsPerWord)
-                      return (old + placeValue)
+  ByteArray -> Finite n
+outOfWords (ByteArray ba) =
+#ifdef BIGNUM
+  Finite $ integerFromBigNat# ba
+#else
+  Finite $ bigNatToInteger (BN# ba)
+#endif

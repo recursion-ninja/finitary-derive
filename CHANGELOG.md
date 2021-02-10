@@ -1,5 +1,13 @@
 # Revision history for finitary-derive
 
+## 3.0.0.0 -- 2021-02-10
+
+* Use ``ByteArray`` for ``PackBytes`` and ``PackWords``,
+  re-using the ``BigNat` functionality where possible.
+* Optimise packing/unpacking using `ByteArray` operations.
+* Export internal packing/unpacking functions and newtype wrappers.
+* Adapt to using ``ghc-bignum`` on GHC 9.0 and above.
+
 ## 2.2.0.1 -- 2021-02-09
 
 * Update bounds for compatibility with GHC 9.0

@@ -6,7 +6,7 @@ split-sections:       True
 
 package finitary-derive
   -- So haddock doesn't complain about plugins
-  haddock-options:    --optghc=-fdefer-type-errors 
+  haddock-options:    --optghc=-fdefer-type-errors
 
 package finitary
   haddock-options:    --optghc=-fdefer-type-errors

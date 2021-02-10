@@ -18,21 +18,25 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Extra.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE RoleAnnotations #-}
+{-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE Trustworthy #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE ViewPatterns #-}
 
+#ifndef BITVEC_UNSAFE
 -- |
 -- Module:        Data.Finitary.PackBits
 -- Description:   Scheme for bit-packing @Finitary@ types.
@@ -66,36 +70,110 @@
 -- This encoding is __thread-safe__, and thus slightly slower. If you are certain 
 -- that race conditions cannot occur for your code, you can gain a speed improvement 
 -- by using "Data.Finitary.PackBits.Unsafe" instead.
-module Data.Finitary.PackBits 
-(
-  PackBits, pattern Packed,
-  BulkPack, exposeVector
-) where
 
-import GHC.TypeLits.Extra
-import Data.Proxy (Proxy(..))
-import Numeric.Natural (Natural)
-import GHC.TypeNats
-import CoercibleUtils (op, over, over2)
+module Data.Finitary.PackBits 
+#else
+-- |
+-- Module:        Data.Finitary.PackBits.Unsafe
+-- Description:   Scheme for bit-packing @Finitary@ types.
+-- Copyright:     (C) Koz Ross 2019
+-- License:       GPL version 3.0 or later
+-- Stability:     Experimental
+-- Portability:   GHC only
+--
+-- From the [Kraft-McMillan
+-- inequality](https://en.wikipedia.org/wiki/Kraft%E2%80%93McMillan_inequality)
+-- and 
+-- the fact that we are not able to have \'fractional\' bits, we can derive a
+-- fixed-length code into a bitstring for any 'Finitary' type @a@, with code
+-- length \(\lceil \log_{2}(\texttt{Cardinality a}) \rceil\) bits. This code is
+-- essentially a binary representation of the index of each inhabitant of @a@.
+-- On that basis, we can derive an 'VU.Unbox' instance, representing
+-- the entire 'VU.Vector' as an unboxed [bit
+-- array](https://en.wikipedia.org/wiki/Bit_array).
+--
+-- This encoding is advantageous from the point of view of space - there is no
+-- tighter possible packing that preserves \(\Theta(1)\) random access and also
+-- allows the full range of 'VU.Vector' operations. If you are concerned about
+-- space usage above all, this is the best choice for you. 
+--
+-- Because access to individual bits is slower than whole bytes or words, this
+-- encoding adds some overhead. Additionally, a primary advantage of bit arrays
+-- (the ability to perform \'bulk\' operations on bits efficiently) is not made
+-- use of here. Therefore, if speed matters more than compactness, this encoding
+-- is suboptimal.
+--
+-- This encoding is __not__ thread-safe, in exchange for performance. If you
+-- suspect race conditions are possible, it's better to use
+-- "Data.Finitary.PackBits" instead.
+module Data.Finitary.PackBits.Unsafe
+#endif
+  ( -- * Packing and unpacking between a type and a bit vector
+    PackBits(PackedBits, Packed)
+  , BulkPack, exposeVector
+  
+  -- * Helpers
+  , intoBits, outOfBits
+  )
+where
+
+
+-- base
 import Data.Kind (Type)
 import Data.Hashable (Hashable(..))
-import Data.Vector.Instances ()
-import Data.Vector.Binary ()
-import Control.DeepSeq (NFData(..))
-import Data.Finitary(Finitary(..))
-import Data.Finite (Finite)
-import Control.Monad.Trans.State.Strict (evalState, get, modify, put)
-import Data.Semigroup (Dual(..))
+import GHC.Exts
+import GHC.TypeNats
+import Unsafe.Coerce (unsafeCoerce)
 
+-- binary
 import qualified Data.Binary as Bin
-import qualified Data.Bit.ThreadSafe as BT
-import qualified Data.Vector.Generic as VG
+
+-- bitvec
+#ifndef BITVEC_UNSAFE
+import qualified Data.Bit.ThreadSafe as BV
+#else
+import qualified Data.Bit as BV
+#endif
+
+-- coercible-utils
+import CoercibleUtils (op, over, over2)
+
+-- deepseq
+import Control.DeepSeq (NFData(..))
+
+-- finitary
+import Data.Finitary (Finitary(..))
+
+-- finitary-derive
+import Data.Finitary.PackWords
+  ( PackWords, intoWords, outOfWords )
+
+-- finite-typelits
+import Data.Finite.Internal (Finite(..))
+
+-- ghc-typelits-extra
+import GHC.TypeLits.Extra
+
+-- primitive
+import Data.Primitive.ByteArray (ByteArray(..))
+
+-- vector
+import qualified Data.Vector.Unboxed.Base    as VU
+import qualified Data.Vector.Generic         as VG
+import qualified Data.Vector.Primitive       as VP
 import qualified Data.Vector.Generic.Mutable as VGM
-import qualified Data.Vector.Unboxed as VU
+
+-- vector-binary-instances
+import Data.Vector.Binary ()
+
+-- vector-instances
+import Data.Vector.Instances ()
+
+--------------------------------------------------------------------------------
 
 -- | An opaque wrapper around @a@, representing each value as a 'bit-packed'
 -- encoding.
-newtype PackBits (a :: Type) = PackBits (VU.Vector BT.Bit)
+newtype PackBits (a :: Type) = PackedBits (VU.Vector BV.Bit)
   deriving (Eq, Show)
 
 type role PackBits nominal
@@ -115,26 +193,28 @@ type role PackBits nominal
 -- __Every__ pattern match, and data constructor call, performs a
 -- \(\Theta(\log_{2}(\texttt{Cardinality a}))\) encoding or decoding operation. 
 -- Use with this in mind.
+{-# COMPLETE Packed #-}
 pattern Packed :: forall (a :: Type) . 
   (Finitary a, 1 <= Cardinality a) => 
   a -> PackBits a
 pattern Packed x <- (unpackBits -> x)
   where Packed x = packBits x
 
-instance Ord (PackBits a) where
-  compare (PackBits v1) (PackBits v2) = getDual . VU.foldr go (Dual EQ) . VU.zipWith (,) v1 $ v2
-    where go input order = (order <>) . Dual . uncurry compare $ input
+instance (Finitary a, 1 <= Cardinality a) => Ord (PackBits a) where
+  {-# INLINABLE compare #-}
+  compare (PackedBits v1) (PackedBits v2) =
+    compare (unsafeCoerce v1 :: PackWords a) (unsafeCoerce v2 :: PackWords a)
 
 instance NFData (PackBits a) where
   {-# INLINE rnf #-}
-  rnf = rnf . op PackBits
+  rnf = rnf . op PackedBits
 
 instance (Finitary a, 1 <= Cardinality a) => Finitary (PackBits a) where
   type Cardinality (PackBits a) = Cardinality a
   {-# INLINE fromFinite #-}
-  fromFinite = PackBits . intoBits
+  fromFinite = PackedBits . intoBits
   {-# INLINE toFinite #-}
-  toFinite = outOfBits . op PackBits
+  toFinite = outOfBits . op PackedBits
 
 instance (Finitary a, 1 <= Cardinality a) => Bounded (PackBits a) where
   {-# INLINE minBound #-}
@@ -142,26 +222,26 @@ instance (Finitary a, 1 <= Cardinality a) => Bounded (PackBits a) where
   {-# INLINE maxBound #-}
   maxBound = end
 
-newtype instance VU.MVector s (PackBits a) = MV_PackBits (VU.MVector s BT.Bit)
+newtype instance VU.MVector s (PackBits a) = MV_PackBits (VU.MVector s BV.Bit)
 
 instance (Finitary a, 1 <= Cardinality a) => VGM.MVector VU.MVector (PackBits a) where
   {-# INLINE basicLength #-}
   basicLength = over MV_PackBits ((`div` bitLength @a) . VGM.basicLength)
   {-# INLINE basicOverlaps #-}
   basicOverlaps = over2 MV_PackBits VGM.basicOverlaps
-  {-# INLINE basicUnsafeSlice #-}
+  {-# INLINABLE basicUnsafeSlice #-}
   basicUnsafeSlice i len = over MV_PackBits (VGM.basicUnsafeSlice (i * bitLength @a) (len * bitLength @a))
-  {-# INLINE basicUnsafeNew #-}
+  {-# INLINABLE basicUnsafeNew #-}
   basicUnsafeNew len = fmap MV_PackBits (VGM.basicUnsafeNew (len * bitLength @a))
   {-# INLINE basicInitialize #-}
   basicInitialize = VGM.basicInitialize . op MV_PackBits
-  {-# INLINE basicUnsafeRead #-}
-  basicUnsafeRead (MV_PackBits v) i = fmap PackBits . VG.freeze . VGM.unsafeSlice (i * bitLength @a) (bitLength @a) $ v
-  {-# INLINE basicUnsafeWrite #-}
-  basicUnsafeWrite (MV_PackBits v) i (PackBits x) = let slice = VGM.unsafeSlice (i * bitLength @a) (bitLength @a) v in
+  {-# INLINABLE basicUnsafeRead #-}
+  basicUnsafeRead (MV_PackBits v) i = fmap PackedBits . VG.freeze . VGM.unsafeSlice (i * bitLength @a) (bitLength @a) $ v
+  {-# INLINABLE basicUnsafeWrite #-}
+  basicUnsafeWrite (MV_PackBits v) i (PackedBits x) = let slice = VGM.unsafeSlice (i * bitLength @a) (bitLength @a) v in
                                                       VG.unsafeCopy slice x
 
-newtype instance VU.Vector (PackBits a) = V_PackBits (VU.Vector BT.Bit)
+newtype instance VU.Vector (PackBits a) = V_PackBits (VU.Vector BV.Bit)
 
 instance (Finitary a, 1 <= Cardinality a) => VG.Vector VU.Vector (PackBits a) where
   {-# INLINE basicLength #-}
@@ -170,10 +250,10 @@ instance (Finitary a, 1 <= Cardinality a) => VG.Vector VU.Vector (PackBits a) wh
   basicUnsafeFreeze = fmap V_PackBits . VG.basicUnsafeFreeze . op MV_PackBits
   {-# INLINE basicUnsafeThaw #-}
   basicUnsafeThaw = fmap MV_PackBits . VG.basicUnsafeThaw . op V_PackBits
-  {-# INLINE basicUnsafeSlice #-}
+  {-# INLINABLE basicUnsafeSlice #-}
   basicUnsafeSlice i len = over V_PackBits (VG.basicUnsafeSlice (i * bitLength @a) (len * bitLength @a))
-  {-# INLINE basicUnsafeIndexM #-}
-  basicUnsafeIndexM (V_PackBits v) i = pure . PackBits . VG.unsafeSlice (i * bitLength @a) (bitLength @a) $ v
+  {-# INLINABLE basicUnsafeIndexM #-}
+  basicUnsafeIndexM (V_PackBits v) i = pure . PackedBits . VG.unsafeSlice (i * bitLength @a) (bitLength @a) $ v
 
 instance (Finitary a, 1 <= Cardinality a) => VU.Unbox (PackBits a)
 
@@ -189,14 +269,14 @@ deriving instance (Finitary a, 1 <= Cardinality a) => Eq (BulkPack a)
 deriving instance (Finitary a, 1 <= Cardinality a) => Ord (BulkPack a)
 
 instance Hashable (BulkPack a) where
-  {-# INLINE hashWithSalt #-}
-  hashWithSalt salt = hashWithSalt salt . BT.cloneToWords . op V_PackBits . op BulkPack
+  {-# INLINABLE hashWithSalt #-}
+  hashWithSalt salt = hashWithSalt salt . BV.cloneToWords . op V_PackBits . op BulkPack
 
 instance Bin.Binary (BulkPack a) where
   {-# INLINE put #-}
-  put = Bin.put . BT.cloneToWords . op V_PackBits . op BulkPack
+  put = Bin.put . BV.cloneToWords . op V_PackBits . op BulkPack
   {-# INLINE get #-}
-  get = BulkPack . V_PackBits . BT.castFromWords <$> Bin.get
+  get = BulkPack . V_PackBits . BV.castFromWords <$> Bin.get
 
 -- Helpers
 
@@ -218,23 +298,24 @@ unpackBits = fromFinite . toFinite
 bitLength :: forall (a :: Type) (b :: Type) . 
   (Finitary a, 1 <= Cardinality a, Num b) => 
   b
-bitLength = fromIntegral . natVal $ (Proxy :: Proxy (BitLength a))
+bitLength = fromIntegral $ natVal' @(BitLength a) proxy#
 
-{-# INLINE intoBits #-}
+{-# INLINABLE intoBits #-}
 intoBits :: forall (n :: Nat) .
   (KnownNat n, 1 <= n) =>  
-  Finite n -> VU.Vector BT.Bit
-intoBits = evalState (VU.replicateM (bitLength @(Finite n)) go) . fromIntegral @_ @Natural
-  where go = do remaining <- get
-                let (d, r) = quotRem remaining 2
-                put d >> pure (BT.Bit . toEnum . fromIntegral $ r)
-                
-{-# INLINE outOfBits #-}
+  Finite n -> VU.Vector BV.Bit
+intoBits f = unsafeCoerce (VP.Vector 0 nbBits wordArray)
+  where
+    wordArray :: ByteArray
+    wordArray = intoWords f
+    nbBits :: Int
+    nbBits = fromIntegral $ natVal' @( CLog 2 n ) proxy#
+
+{-# INLINABLE outOfBits #-}
 outOfBits :: forall (n :: Nat) .
   (KnownNat n) =>  
-  VU.Vector BT.Bit -> Finite n
-outOfBits v = evalState (VU.foldM' go 0 v) 1
-  where go old (BT.Bit b) = do power <- get
-                               let placeValue = power * (fromIntegral . fromEnum $ b)
-                               modify (* 2)
-                               return (old + placeValue)
+  VU.Vector BV.Bit -> Finite n
+outOfBits bv = outOfWords @n wordArray
+  where
+    wordArray :: ByteArray
+    VP.Vector _ _ wordArray = unsafeCoerce bv

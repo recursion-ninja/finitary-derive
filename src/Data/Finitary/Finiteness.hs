@@ -81,14 +81,25 @@ module Data.Finitary.Finiteness
   Finiteness(..)
 ) where
 
-import GHC.TypeNats
-import Data.Typeable (Typeable)
+-- base
 import Data.Data (Data)
-import Data.Finitary (Finitary(..))
 import Data.Ord (comparing)
-import Control.DeepSeq (NFData(..))
-import Data.Hashable (Hashable(..))
+import Data.Typeable (Typeable)
+import GHC.TypeNats
+
+-- binary
 import Data.Binary (Binary(..))
+
+-- deepseq
+import Control.DeepSeq (NFData(..))
+
+-- finitary
+import Data.Finitary (Finitary(..))
+
+-- hashable
+import Data.Hashable (Hashable(..))
+
+--------------------------------------------------------------------------------
 
 -- | Essentially 'Data.Functor.Identity' with a different name. Named this way due to the
 -- wordplay you get from use with @DerivingVia@.
@@ -114,7 +125,7 @@ instance (Finitary a) => Finitary (Finiteness a) where
 
 -- | 'Ord' can be derived by deferring to the order on @Finite (Cardinality a)@.
 instance (Finitary a) => Ord (Finiteness a) where
-  {-# INLINE compare #-}
+  {-# INLINABLE compare #-}
   compare (Finiteness x) (Finiteness y) = comparing toFinite x y
 
 -- | Since any inhabited 'Finitary' type is also 'Bounded', we can forward this
@@ -132,7 +143,7 @@ instance (Finitary a) => NFData (Finiteness a) where
 
 -- | Any 'Finitary' type can be hashed by hashing its index.
 instance (Finitary a) => Hashable (Finiteness a) where 
-  {-# INLINE hashWithSalt #-}
+  {-# INLINABLE hashWithSalt #-}
   hashWithSalt salt = hashWithSalt salt . fromIntegral @_ @Integer . toFinite . unFiniteness
 
 -- | Any 'Finitary' type can be converted to a binary representation by

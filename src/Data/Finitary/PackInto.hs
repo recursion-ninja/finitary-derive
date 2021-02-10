@@ -104,6 +104,7 @@ type role PackInto nominal nominal
 -- __Every__ pattern match, and data constructor call, performs a re-encoding by
 -- way of @fromFinite . toFinite@ on @b@ and @a@ respectively. Use with this in
 -- mind.
+{-# COMPLETE Packed #-}
 pattern Packed :: forall (b :: Type) (a :: Type) . 
   (Finitary a, Finitary b, Cardinality a <= Cardinality b) =>
   a -> PackInto a b
