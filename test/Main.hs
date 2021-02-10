@@ -16,6 +16,7 @@
  -}
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
@@ -73,13 +74,41 @@ import Data.Vector.Unboxed (Unbox)
 
 --------------------------------------------------------------------------------
 
-data Foo = Bar | Baz Word8 Word8 | Quux Word16
+data Foo = Bar | Baz Word8 Word16 | Quux Word16
   deriving (Eq, Show, Generic, Finitary)
   deriving (Ord, Bounded, NFData, Hashable, Binary) via (Finiteness Foo)
 
 data Big = Big Word64 Word64 | Mediums Foo Foo Foo Foo
   deriving (Eq, Show, Generic, Finitary)
   deriving (Ord, Bounded, NFData, Hashable, Binary) via (Finiteness Big)
+
+genFoo :: MonadGen m => m Foo
+genFoo = do
+  c <- G.element @_ @Word [ 0, 1, 2 ]
+  case c of
+    0 -> pure Bar
+    1 -> do
+      w1 <- G.word8  (R.linear 0 maxBound)
+      w2 <- G.word16 (R.linear 0 maxBound)
+      pure ( Baz w1 w2 )
+    _ -> do
+      w1 <- G.word16 (R.linear 0 maxBound)
+      pure ( Quux w1 )
+
+genBig :: MonadGen m => m Big
+genBig = do
+  c <- G.element @_ @Word [ 0, 1 ]
+  case c of
+    0 -> do
+      w1 <- G.word64 (R.linear 0 maxBound)
+      w2 <- G.word64 (R.linear 0 maxBound)
+      pure ( Big w1 w2 )
+    _ -> do
+      foo1 <- genFoo
+      foo2 <- genFoo
+      foo3 <- genFoo
+      foo4 <- genFoo
+      pure ( Mediums foo1 foo2 foo3 foo4 )
 
 -- Generators
 choose :: forall (a :: Type) m . (MonadGen m, Finitary a) => m a
@@ -104,6 +133,15 @@ ordIsMonotonic :: forall (a :: Type) (t :: Type -> Type) .
 ordIsMonotonic f = property $ do x <- forAll $ choose @a
                                  y <- forAll $ choose @a
                                  (x < y) === (f x < f y)
+
+roundTrips :: forall (a :: Type) (t :: Type -> Type) . 
+  (Finitary a, Show a, Ord a) => 
+  Gen a -> (a -> t a) -> (t a -> a) -> Property
+roundTrips gen pack unpack = property $ do
+  a <- forAll $ gen
+  case pack a of
+    !packed -> case unpack packed of
+      roundTripped -> a === roundTripped
 
 finitenessTests :: [(String,[Laws])]
 finitenessTests =
@@ -144,9 +182,21 @@ monotonicTests = Group "Monotonicity"
   , ("Big PackWords"        , ordIsMonotonic @Big PackWords.Packed)
   ]
 
+roundTripTests :: Group
+roundTripTests = Group "Round-tripping" 
+  [ ("Small PackBits"       , roundTrips @Foo genFoo      Safe.Packed ( \ (      Safe.Packed x ) -> x ) )
+  , ("Small unsafe PackBits", roundTrips @Foo genFoo    Unsafe.Packed ( \ (    Unsafe.Packed x ) -> x ) )
+  , ("Small PackBytes"      , roundTrips @Foo genFoo PackBytes.Packed ( \ ( PackBytes.Packed x ) -> x ) )
+  , ("Small PackWords"      , roundTrips @Foo genFoo PackWords.Packed ( \ ( PackWords.Packed x ) -> x ) )
+  , ("Big PackBits"         , roundTrips @Big genBig      Safe.Packed ( \ (      Safe.Packed x ) -> x ) )
+  , ("Big unsafe PackBits"  , roundTrips @Big genBig    Unsafe.Packed ( \ (    Unsafe.Packed x ) -> x ) )
+  , ("Big PackBytes"        , roundTrips @Big genBig PackBytes.Packed ( \ ( PackBytes.Packed x ) -> x ) )
+  , ("Big PackWords"        , roundTrips @Big genBig PackWords.Packed ( \ ( PackWords.Packed x ) -> x ) )
+  ]
+
 checkTest :: Either [(String,[Laws])] Group -> IO Bool
 checkTest ( Left  laws  ) = lawsCheckMany laws
 checkTest ( Right group ) = checkParallel group
 
 main :: IO Bool
-main = and <$> traverse checkTest [ Left finitenessTests, Left packTests, Left vectorTests, Right monotonicTests ]
+main = and <$> traverse checkTest [ Left finitenessTests, Left packTests, Left vectorTests, Right monotonicTests, Right roundTripTests ]

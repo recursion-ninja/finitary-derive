@@ -2,10 +2,11 @@
 
 ## 3.0.0.0 -- 2021-02-10
 
-* Use ``ByteArray`` for ``PackBytes`` and ``PackWords``,
+* Use ``ByteArray`` for packed data internally,
   re-using the ``BigNat` functionality where possible.
-* Optimise packing/unpacking using `ByteArray` operations.
+  This significantly improves the performance of packing/unpacking operations.
 * Export internal packing/unpacking functions and newtype wrappers.
+* Add ``COMPLETE`` pragmas to ``Packed`` pattern synonyms.
 * Adapt to using ``ghc-bignum`` on GHC 9.0 and above.
 
 ## 2.2.0.1 -- 2021-02-09

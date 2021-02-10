@@ -117,13 +117,11 @@ module Data.Finitary.PackBits.Unsafe
   )
 where
 
-
 -- base
 import Data.Kind (Type)
 import Data.Hashable (Hashable(..))
 import GHC.Exts
 import GHC.TypeNats
-import Unsafe.Coerce (unsafeCoerce)
 
 -- binary
 import qualified Data.Binary as Bin
@@ -146,7 +144,7 @@ import Data.Finitary (Finitary(..))
 
 -- finitary-derive
 import Data.Finitary.PackWords
-  ( PackWords, intoWords, outOfWords )
+  ( PackWords(PackedWords), intoWords, outOfWords )
 
 -- finite-typelits
 import Data.Finite.Internal (Finite(..))
@@ -160,7 +158,6 @@ import Data.Primitive.ByteArray (ByteArray(..))
 -- vector
 import qualified Data.Vector.Unboxed.Base    as VU
 import qualified Data.Vector.Generic         as VG
-import qualified Data.Vector.Primitive       as VP
 import qualified Data.Vector.Generic.Mutable as VGM
 
 -- vector-binary-instances
@@ -202,8 +199,8 @@ pattern Packed x <- (unpackBits -> x)
 
 instance (Finitary a, 1 <= Cardinality a) => Ord (PackBits a) where
   {-# INLINABLE compare #-}
-  compare (PackedBits v1) (PackedBits v2) =
-    compare (unsafeCoerce v1 :: PackWords a) (unsafeCoerce v2 :: PackWords a)
+  compare (PackedBits (BV.BitVec _ _ v1)) (PackedBits (BV.BitVec _ _ v2)) =
+    compare (PackedWords v1 :: PackWords a) (PackedWords v2 :: PackWords a)
 
 instance NFData (PackBits a) where
   {-# INLINE rnf #-}
@@ -304,7 +301,7 @@ bitLength = fromIntegral $ natVal' @(BitLength a) proxy#
 intoBits :: forall (n :: Nat) .
   (KnownNat n, 1 <= n) =>  
   Finite n -> VU.Vector BV.Bit
-intoBits f = unsafeCoerce (VP.Vector 0 nbBits wordArray)
+intoBits f = BV.BitVec 0 nbBits wordArray
   where
     wordArray :: ByteArray
     wordArray = intoWords f
@@ -315,7 +312,4 @@ intoBits f = unsafeCoerce (VP.Vector 0 nbBits wordArray)
 outOfBits :: forall (n :: Nat) .
   (KnownNat n) =>  
   VU.Vector BV.Bit -> Finite n
-outOfBits bv = outOfWords @n wordArray
-  where
-    wordArray :: ByteArray
-    VP.Vector _ _ wordArray = unsafeCoerce bv
+outOfBits (BV.BitVec _ _ wordArray) = outOfWords @n wordArray
