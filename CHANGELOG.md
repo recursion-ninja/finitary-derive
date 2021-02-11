@@ -1,9 +1,9 @@
 # Revision history for finitary-derive
 
-## 3.0.0.0 -- 2021-02-10
+## 3.0.0.1 -- 2021-02-10
 
 * Use ``ByteArray`` for packed data internally,
-  re-using the ``BigNat` functionality where possible.
+  re-using the ``BigNat`` functionality where possible.
   This significantly improves the performance of packing/unpacking operations.
 * Export internal packing/unpacking functions and newtype wrappers.
 * Add ``COMPLETE`` pragmas to ``Packed`` pattern synonyms.
