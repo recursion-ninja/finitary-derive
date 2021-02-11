@@ -29,6 +29,7 @@
 module Main where
 
 -- base
+import Data.Int  (Int8)
 import Data.Kind (Type)
 import Data.Word (Word8, Word16, Word64)
 import Foreign.Storable (Storable)
@@ -74,23 +75,41 @@ import Data.Vector.Unboxed (Unbox)
 
 --------------------------------------------------------------------------------
 
-data Foo = Bar | Baz Word8 Word16 | Quux Word16
+data Small = A | B | C Int8 | D | E Bool
   deriving (Eq, Show, Generic, Finitary)
-  deriving (Ord, Bounded, NFData, Hashable, Binary) via (Finiteness Foo)
+  deriving (Ord, Bounded, NFData, Hashable, Binary) via (Finiteness Small)
 
-data Big = Big Word64 Word64 | Mediums Foo Foo Foo Foo
+data Medium = Bar | Baz Word8 Small | Quux Word16
+  deriving (Eq, Show, Generic, Finitary)
+  deriving (Ord, Bounded, NFData, Hashable, Binary) via (Finiteness Medium)
+
+data Big = Big1 Word64 Word64 | Big2 Int Medium Small Medium
   deriving (Eq, Show, Generic, Finitary)
   deriving (Ord, Bounded, NFData, Hashable, Binary) via (Finiteness Big)
 
-genFoo :: MonadGen m => m Foo
-genFoo = do
+genSmall :: MonadGen m => m Small
+genSmall = do
+  c <- G.element @_ @Word [ 0, 1, 2, 3, 4 ]
+  case c of
+    0 -> pure A
+    1 -> pure B
+    2 -> do
+      i <- G.int8 (R.linear 0 maxBound)
+      pure ( C i )
+    3 -> pure D
+    _ -> do
+      b <- G.bool
+      pure ( E b )
+
+genMedium :: MonadGen m => m Medium
+genMedium = do
   c <- G.element @_ @Word [ 0, 1, 2 ]
   case c of
     0 -> pure Bar
     1 -> do
       w1 <- G.word8  (R.linear 0 maxBound)
-      w2 <- G.word16 (R.linear 0 maxBound)
-      pure ( Baz w1 w2 )
+      s2 <- genSmall
+      pure ( Baz w1 s2 )
     _ -> do
       w1 <- G.word16 (R.linear 0 maxBound)
       pure ( Quux w1 )
@@ -102,13 +121,13 @@ genBig = do
     0 -> do
       w1 <- G.word64 (R.linear 0 maxBound)
       w2 <- G.word64 (R.linear 0 maxBound)
-      pure ( Big w1 w2 )
+      pure ( Big1 w1 w2 )
     _ -> do
-      foo1 <- genFoo
-      foo2 <- genFoo
-      foo3 <- genFoo
-      foo4 <- genFoo
-      pure ( Mediums foo1 foo2 foo3 foo4 )
+      i1     <- G.int (R.linear 0 maxBound)
+      med2   <- genMedium
+      small3 <- genSmall
+      med4   <- genMedium
+      pure ( Big2 i1 med2 small3 med4 )
 
 -- Generators
 choose :: forall (a :: Type) m . (MonadGen m, Finitary a) => m a
@@ -145,53 +164,68 @@ roundTrips gen pack unpack = property $ do
 
 finitenessTests :: [(String,[Laws])]
 finitenessTests =
-  [ ("Small Finiteness", finitenessLaws @Foo choose)
-  , ("Big Finiteness"  , finitenessLaws @Big choose)
+  [ ("Small  Finiteness", finitenessLaws @Small  choose)
+  , ("Medium Finiteness", finitenessLaws @Medium choose)
+  , ("Big    Finiteness", finitenessLaws @Big    choose)
   ]
 
 packTests :: [(String,[Laws])]
 packTests =
-  [ ("Small PackBytes"         , packLaws @(PackBytes Foo)       choose)
-  , ("Big PackBytes"           , packLaws @(PackBytes Big)       choose)
-  , ("Small PackWords"         , packLaws @(PackWords Foo)       choose)
-  , ("Big PackWords"           , packLaws @(PackWords Big)       choose)
-  , ("Small packed into Word64", packLaws @(PackInto Foo Word64) choose)
+  [ ("Small PackBytes"         , packLaws @(PackBytes Small      ) choose)
+  , ("Small PackWords"         , packLaws @(PackWords Small      ) choose)
+  , ("Medium PackBytes"        , packLaws @(PackBytes Medium     ) choose)
+  , ("Medium PackWords"        , packLaws @(PackWords Medium     ) choose)
+  , ("Big PackBytes"           , packLaws @(PackBytes Big        ) choose)
+  , ("Big PackWords"           , packLaws @(PackWords Big        ) choose)
+  , ("Small packed into Word64", packLaws @(PackInto Small Word64) choose)
   ]
 
 vectorTests :: [(String,[Laws])]
 vectorTests =
-  [ ("Small PackBits"       , vectorLaws @(Safe.PackBits   Foo) choose)
-  , ("Small unsafe PackBits", vectorLaws @(Unsafe.PackBits Foo) choose)
-  , ("Small PackBytes"      , vectorLaws @(PackBytes       Foo) choose)
-  , ("Small PackWords"      , vectorLaws @(PackWords       Foo) choose)
-  , ("Big PackBits"         , vectorLaws @(Safe.PackBits   Big) choose)
-  , ("Big unsafe PackBits"  , vectorLaws @(Unsafe.PackBits Big) choose)
-  , ("Big PackBytes"        , vectorLaws @(PackBytes       Big) choose)
-  , ("Big PackWords"        , vectorLaws @(PackWords       Big) choose)
+  [ ("Small PackBits"        , vectorLaws @(Safe.PackBits   Small ) choose)
+  , ("Small unsafe PackBits" , vectorLaws @(Unsafe.PackBits Small ) choose)
+  , ("Small PackBytes"       , vectorLaws @(PackBytes       Small ) choose)
+  , ("Small PackWords"       , vectorLaws @(PackWords       Small ) choose)
+  , ("Medium PackBits"       , vectorLaws @(Safe.PackBits   Medium) choose)
+  , ("Medium unsafe PackBits", vectorLaws @(Unsafe.PackBits Medium) choose)
+  , ("Medium PackBytes"      , vectorLaws @(PackBytes       Medium) choose)
+  , ("Medium PackWords"      , vectorLaws @(PackWords       Medium) choose)
+  , ("Big PackBits"          , vectorLaws @(Safe.PackBits   Big   ) choose)
+  , ("Big unsafe PackBits"   , vectorLaws @(Unsafe.PackBits Big   ) choose)
+  , ("Big PackBytes"         , vectorLaws @(PackBytes       Big   ) choose)
+  , ("Big PackWords"         , vectorLaws @(PackWords       Big   ) choose)
   ]
 
 monotonicTests :: Group
 monotonicTests = Group "Monotonicity" 
-  [ ("Small PackBits"       , ordIsMonotonic @Foo      Safe.Packed)
-  , ("Small unsafe PackBits", ordIsMonotonic @Foo    Unsafe.Packed)
-  , ("Small PackBytes"      , ordIsMonotonic @Foo PackBytes.Packed)
-  , ("Small PackWords"      , ordIsMonotonic @Foo PackWords.Packed)
-  , ("Big PackBits"         , ordIsMonotonic @Big      Safe.Packed)
-  , ("Big unsafe PackBits"  , ordIsMonotonic @Big    Unsafe.Packed)
-  , ("Big PackBytes"        , ordIsMonotonic @Big PackBytes.Packed)
-  , ("Big PackWords"        , ordIsMonotonic @Big PackWords.Packed)
+  [ ("Small PackBits"        , ordIsMonotonic @Small       Safe.Packed)
+  , ("Small unsafe PackBits" , ordIsMonotonic @Small     Unsafe.Packed)
+  , ("Small PackBytes"       , ordIsMonotonic @Small  PackBytes.Packed)
+  , ("Small PackWords"       , ordIsMonotonic @Small  PackWords.Packed)
+  , ("Medium PackBits"       , ordIsMonotonic @Medium      Safe.Packed)
+  , ("Medium unsafe PackBits", ordIsMonotonic @Medium    Unsafe.Packed)
+  , ("Medium PackBytes"      , ordIsMonotonic @Medium PackBytes.Packed)
+  , ("Medium PackWords"      , ordIsMonotonic @Medium PackWords.Packed)
+  , ("Big PackBits"          , ordIsMonotonic @Big         Safe.Packed)
+  , ("Big unsafe PackBits"   , ordIsMonotonic @Big       Unsafe.Packed)
+  , ("Big PackBytes"         , ordIsMonotonic @Big    PackBytes.Packed)
+  , ("Big PackWords"         , ordIsMonotonic @Big    PackWords.Packed)
   ]
 
 roundTripTests :: Group
 roundTripTests = Group "Round-tripping" 
-  [ ("Small PackBits"       , roundTrips @Foo genFoo      Safe.Packed ( \ (      Safe.Packed x ) -> x ) )
-  , ("Small unsafe PackBits", roundTrips @Foo genFoo    Unsafe.Packed ( \ (    Unsafe.Packed x ) -> x ) )
-  , ("Small PackBytes"      , roundTrips @Foo genFoo PackBytes.Packed ( \ ( PackBytes.Packed x ) -> x ) )
-  , ("Small PackWords"      , roundTrips @Foo genFoo PackWords.Packed ( \ ( PackWords.Packed x ) -> x ) )
-  , ("Big PackBits"         , roundTrips @Big genBig      Safe.Packed ( \ (      Safe.Packed x ) -> x ) )
-  , ("Big unsafe PackBits"  , roundTrips @Big genBig    Unsafe.Packed ( \ (    Unsafe.Packed x ) -> x ) )
-  , ("Big PackBytes"        , roundTrips @Big genBig PackBytes.Packed ( \ ( PackBytes.Packed x ) -> x ) )
-  , ("Big PackWords"        , roundTrips @Big genBig PackWords.Packed ( \ ( PackWords.Packed x ) -> x ) )
+  [ ("Small PackBits"        , roundTrips @Small  genSmall       Safe.Packed ( \ (      Safe.Packed x ) -> x ) )
+  , ("Small unsafe PackBits" , roundTrips @Small  genSmall     Unsafe.Packed ( \ (    Unsafe.Packed x ) -> x ) )
+  , ("Small PackBytes"       , roundTrips @Small  genSmall  PackBytes.Packed ( \ ( PackBytes.Packed x ) -> x ) )
+  , ("Small PackWords"       , roundTrips @Small  genSmall  PackWords.Packed ( \ ( PackWords.Packed x ) -> x ) )
+  , ("Medium PackBits"       , roundTrips @Medium genMedium      Safe.Packed ( \ (      Safe.Packed x ) -> x ) )
+  , ("Medium unsafe PackBits", roundTrips @Medium genMedium    Unsafe.Packed ( \ (    Unsafe.Packed x ) -> x ) )
+  , ("Medium PackBytes"      , roundTrips @Medium genMedium PackBytes.Packed ( \ ( PackBytes.Packed x ) -> x ) )
+  , ("Medium PackWords"      , roundTrips @Medium genMedium PackWords.Packed ( \ ( PackWords.Packed x ) -> x ) )
+  , ("Big PackBits"          , roundTrips @Big    genBig         Safe.Packed ( \ (      Safe.Packed x ) -> x ) )
+  , ("Big unsafe PackBits"   , roundTrips @Big    genBig       Unsafe.Packed ( \ (    Unsafe.Packed x ) -> x ) )
+  , ("Big PackBytes"         , roundTrips @Big    genBig    PackBytes.Packed ( \ ( PackBytes.Packed x ) -> x ) )
+  , ("Big PackWords"         , roundTrips @Big    genBig    PackWords.Packed ( \ ( PackWords.Packed x ) -> x ) )
   ]
 
 checkTest :: Either [(String,[Laws])] Group -> IO Bool

@@ -10,7 +10,3 @@ package finitary-derive
 
 package finitary
   haddock-options:    --optghc=-fdefer-type-errors
-  documentation: True
-
-package *
-  documentation: True
