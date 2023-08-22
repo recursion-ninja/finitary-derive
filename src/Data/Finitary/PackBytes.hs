@@ -32,6 +32,7 @@
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- |
@@ -70,6 +71,8 @@ module Data.Finitary.PackBytes
   )
   where
 
+import Data.Finitary.Coercion (op, over, over2)
+
 -- base
 import Data.Kind (Type)
 import Data.Word (Word8)
@@ -81,9 +84,6 @@ import GHC.TypeNats
 
 -- binary
 import qualified Data.Binary as Bin
-
--- coercible-utils
-import CoercibleUtils (op, over, over2)
 
 -- deepseq
 import Control.DeepSeq (NFData(..))
@@ -116,7 +116,7 @@ import Data.Vector.Instances ()
 
 #ifdef BIGNUM
 -- base
-import Numeric.Natural (Natural)
+--import Numeric.Natural (Natural)
 
 -- ghc-bignum
 import GHC.Num.Integer (integerToNaturalClamp)
@@ -308,14 +308,14 @@ compareByteArraysLE :: ByteArray# -> ByteArray# -> Int# -> Ordering
 compareByteArraysLE ba1 ba2 off
   | isTrue# ( off <# 0# )
   = EQ
-  | isTrue# ( b1 `eqWord#` b2 )
+  | isTrue# ( b1 `eqWord8#` b2 )
   = compareByteArraysLE ba1 ba2 ( off -# 1# )
-  | isTrue# ( b1 `ltWord#` b2 )
+  | isTrue# ( b1 `ltWord8#` b2 )
   = LT
   | otherwise
   = GT
   where
-    b1, b2 :: Word#
+    b1, b2 :: Word8#
     b1 = indexWord8Array# ba1 off
     b2 = indexWord8Array# ba2 off
 

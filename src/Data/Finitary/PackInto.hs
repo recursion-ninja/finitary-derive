@@ -24,6 +24,7 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- |
 -- Module:        Data.Finitary.PackInto
@@ -65,18 +66,18 @@ module Data.Finitary.PackInto
   PackInto, pattern Packed
 ) where
 
-import GHC.TypeNats
-import Data.Vector.Instances ()
-import Data.Kind (Type)
-import CoercibleUtils (op, over, over2)
-import Data.Hashable (Hashable(..))
 import Control.DeepSeq (NFData(..))
-import Foreign.Storable (Storable(..))
-import Foreign.Ptr (castPtr)
 import Data.Finitary (Finitary(..))
+import Data.Finitary.Coercion (op, over, over2)
 import Data.Finite (weakenN, strengthenN)
+import Data.Hashable (Hashable(..))
+import Data.Kind (Type)
 import Data.Maybe (fromJust)
 import Data.Ord (comparing)
+import Data.Vector.Instances ()
+import Foreign.Ptr (castPtr)
+import Foreign.Storable (Storable(..))
+import GHC.TypeNats
 
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Generic as VG

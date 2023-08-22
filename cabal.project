@@ -1,12 +1,13 @@
-packages:             ./*.cabal
--- flags:       set whatever you need here
-optimization:         2
+Allow-Newer:
+    base,
+
+Optimization: 2
+
+Packages: ./*.cabal
+
+Source-Repository-Package
+  Type:     git
+  Location: https://github.com/mstksg/typelits-witnesses
+
 -- smaller binaries, but builds slower
-split-sections:       True
-
-package finitary-derive
-  -- So haddock doesn't complain about plugins
-  haddock-options:    --optghc=-fdefer-type-errors
-
-package finitary
-  haddock-options:    --optghc=-fdefer-type-errors
+Split-sections: True

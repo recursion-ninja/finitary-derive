@@ -32,6 +32,7 @@
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- |
@@ -69,6 +70,8 @@ module Data.Finitary.PackWords
   )
   where
 
+import Data.Finitary.Coercion (op, over, over2)
+
 -- base
 import Data.Kind (Type)
 import Data.Hashable (Hashable(..), hashByteArrayWithSalt)
@@ -80,9 +83,6 @@ import GHC.TypeNats
 
 -- binary
 import qualified Data.Binary as Bin
-
--- coercible-utils
-import CoercibleUtils (op, over, over2)
 
 -- deepseq
 import Control.DeepSeq (NFData(..))
@@ -122,6 +122,7 @@ import GHC.Num.Integer (integerToNaturalClamp, integerFromBigNat#)
 import GHC.Integer.GMP.Internals
   ( BigNat(..), bigNatToInteger, compareBigNat, sizeofBigNat# )
 #endif
+
 
 --------------------------------------------------------------------------------
 

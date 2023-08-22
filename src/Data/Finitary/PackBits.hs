@@ -35,6 +35,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 #ifndef BITVEC_UNSAFE
 -- |
@@ -117,6 +118,8 @@ module Data.Finitary.PackBits.Unsafe
   )
 where
 
+import Data.Finitary.Coercion (op, over, over2)
+
 -- base
 import Data.Kind (Type)
 import Data.Hashable (Hashable(..))
@@ -132,9 +135,6 @@ import qualified Data.Bit.ThreadSafe as BV
 #else
 import qualified Data.Bit as BV
 #endif
-
--- coercible-utils
-import CoercibleUtils (op, over, over2)
 
 -- deepseq
 import Control.DeepSeq (NFData(..))
@@ -265,7 +265,7 @@ deriving instance (Finitary a, 1 <= Cardinality a) => Eq (BulkPack a)
 
 deriving instance (Finitary a, 1 <= Cardinality a) => Ord (BulkPack a)
 
-instance Hashable (BulkPack a) where
+instance (Finitary a, 1 <= Cardinality a) => Hashable (BulkPack a) where
   {-# INLINABLE hashWithSalt #-}
   hashWithSalt salt = hashWithSalt salt . BV.cloneToWords . op V_PackBits . op BulkPack
 
